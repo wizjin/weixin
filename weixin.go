@@ -1,3 +1,4 @@
+// Weixin MP SDK (Golang)
 package weixin
 
 import (
@@ -13,13 +14,14 @@ import (
 )
 
 const (
-	// Event Type
+	// Event type
 	msgEvent         = "event"
 	EventSubscribe   = "subscribe"
 	EventUnsubscribe = "unsubscribe"
 	EventScan        = "scan"
 	EventClick       = "CLICK"
-	// Message Type - Callback register
+
+	// Message type
 	MsgTypeDefault          = ".*"
 	MsgTypeText             = "text"
 	MsgTypeImage            = "image"
@@ -34,6 +36,7 @@ const (
 	MsgTypeEventClick       = msgEvent + "\\." + EventClick
 )
 
+// Common message header
 type MessageHeader struct {
 	ToUserName   string
 	FromUserName string
@@ -41,7 +44,7 @@ type MessageHeader struct {
 	MsgType      string
 }
 
-// Message request
+// Weixin request
 type Request struct {
 	MessageHeader
 	MsgId        int64
@@ -66,6 +69,7 @@ type Request struct {
 	Recognition  string
 }
 
+// Use to reply news message
 type ReplyArticle struct {
 	Title       string
 	Description string
@@ -73,6 +77,7 @@ type ReplyArticle struct {
 	Url         string
 }
 
+// Use to output reply
 type ResponseWriter interface {
 	WriteText(text string)
 	WriteImage(mediaId string)
@@ -88,6 +93,7 @@ type responseWriter struct {
 	fromUserName string
 }
 
+// Callback function
 type HandlerFunc func(ResponseWriter, *Request)
 
 type route struct {
@@ -96,14 +102,22 @@ type route struct {
 }
 
 type Weixin struct {
-	token  string
-	routes []*route
+	token    string
+	routes   []*route
+	msgQueue chan string
 }
 
-func New(token string) *Weixin {
-	return &Weixin{token: token}
+// Create a Weixin instance
+func New(token string, appid string, secret string) *Weixin {
+	wx := &Weixin{}
+	wx.token = token
+	if len(appid) > 0 && len(secret) > 0 {
+		wx.msgQueue = make(chan string, 1)
+	}
+	return wx
 }
 
+// Register request callback.
 func (wx *Weixin) HandleFunc(pattern string, handler HandlerFunc) {
 	regex, err := regexp.Compile(pattern)
 	if err != nil {
@@ -114,6 +128,7 @@ func (wx *Weixin) HandleFunc(pattern string, handler HandlerFunc) {
 	wx.routes = append(wx.routes, route)
 }
 
+// Process weixin request and send response.
 func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !checkSignature(wx.token, w, r) {
 		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
@@ -192,31 +207,37 @@ func (w responseWriter) fmtHeader() string {
 	return fmt.Sprintf(replyHeader, w.toUserName, w.fromUserName, time.Now().Unix())
 }
 
+// Reply text message
 func (w responseWriter) WriteText(text string) {
 	msg := fmt.Sprintf(replyText, w.fmtHeader(), text)
 	w.writer.Write([]byte(msg))
 }
 
+// Reply image message
 func (w responseWriter) WriteImage(mediaId string) {
 	msg := fmt.Sprintf(replyImage, w.fmtHeader(), mediaId)
 	w.writer.Write([]byte(msg))
 }
 
+// Reply voice message
 func (w responseWriter) WriteVoice(mediaId string) {
 	msg := fmt.Sprintf(replyVoice, w.fmtHeader(), mediaId)
 	w.writer.Write([]byte(msg))
 }
 
+// Reply video message
 func (w responseWriter) WriteVideo(mediaId string, title string, description string) {
 	msg := fmt.Sprintf(replyVideo, w.fmtHeader(), mediaId, title, description)
 	w.writer.Write([]byte(msg))
 }
 
+// Reply music message
 func (w responseWriter) WriteMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string) {
 	msg := fmt.Sprintf(replyMusic, w.fmtHeader(), title, description, musicUrl, hqMusicUrl, thumbMediaId)
 	w.writer.Write([]byte(msg))
 }
 
+// Reply news message (max 10 news)
 func (w responseWriter) WriteNews(articles []ReplyArticle) {
 	var ctx string
 	for _, article := range articles {
