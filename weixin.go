@@ -2,7 +2,9 @@
 package weixin
 
 import (
+	"bytes"
 	"crypto/sha1"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -79,15 +81,16 @@ type ReplyArticle struct {
 
 // Use to output reply
 type ResponseWriter interface {
-	WriteText(text string)
-	WriteImage(mediaId string)
-	WriteVoice(mediaId string)
-	WriteVideo(mediaId string, title string, description string)
-	WriteMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string)
-	WriteNews(articles []ReplyArticle)
+	ReplyText(text string)
+	ReplyImage(mediaId string)
+	ReplyVoice(mediaId string)
+	ReplyVideo(mediaId string, title string, description string)
+	ReplyMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string)
+	ReplyNews(articles []ReplyArticle)
 }
 
 type responseWriter struct {
+	wx           *Weixin
 	writer       http.ResponseWriter
 	toUserName   string
 	fromUserName string
@@ -104,7 +107,7 @@ type route struct {
 type Weixin struct {
 	token    string
 	routes   []*route
-	msgQueue chan string
+	msgQueue chan interface{}
 }
 
 // Create a Weixin instance
@@ -112,7 +115,8 @@ func New(token string, appid string, secret string) *Weixin {
 	wx := &Weixin{}
 	wx.token = token
 	if len(appid) > 0 && len(secret) > 0 {
-		wx.msgQueue = make(chan string, 1)
+		wx.msgQueue = make(chan interface{}, 10)
+		go postMessage(wx.msgQueue, appid, secret)
 	}
 	return wx
 }
@@ -128,10 +132,25 @@ func (wx *Weixin) HandleFunc(pattern string, handler HandlerFunc) {
 	wx.routes = append(wx.routes, route)
 }
 
+// Post text message
+func (wx *Weixin) PostText(touser string, text string) {
+	var msg struct {
+		ToUser  string `json:"touser"`
+		MsgType string `json:"msgtype"`
+		Text    struct {
+			Content string `json:"content"`
+		} `json:"text"`
+	}
+	msg.ToUser = touser
+	msg.MsgType = "text"
+	msg.Text.Content = text
+	wx.msgQueue <- msg
+}
+
 // Process weixin request and send response.
 func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !checkSignature(wx.token, w, r) {
-		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
 
@@ -145,12 +164,12 @@ func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println("Weixin receive message failed:", err)
-		http.Error(w, "400 Bad Request", http.StatusBadRequest)
+		http.Error(w, "", http.StatusBadRequest)
 	} else {
 		var msg Request
 		if err := xml.Unmarshal(data, &msg); err != nil {
 			log.Println("Weixin parse message failed:", err)
-			http.Error(w, "400 Bad Request", http.StatusBadRequest)
+			http.Error(w, "", http.StatusBadRequest)
 		} else {
 			wx.routeRequest(w, &msg)
 		}
@@ -167,13 +186,14 @@ func (wx *Weixin) routeRequest(w http.ResponseWriter, r *Request) {
 			continue
 		}
 		writer := responseWriter{}
+		writer.wx = wx
 		writer.writer = w
 		writer.toUserName = r.FromUserName
 		writer.fromUserName = r.ToUserName
 		route.handler(writer, r)
 		return
 	}
-	http.Error(w, "404 Not Found", http.StatusNotFound)
+	http.Error(w, "", http.StatusNotFound)
 }
 
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
@@ -192,6 +212,62 @@ func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
 	return fmt.Sprintf("%x", h.Sum(nil)) == signature
 }
 
+const weixinHost = "https://api.weixin.qq.com/cgi-bin"
+
+func authAccessToken(appid string, secret string) (string, float64) {
+	resp, err := http.Get(weixinHost + "/token?grant_type=client_credential&appid=" + appid + "&secret=" + secret)
+	if err != nil {
+		log.Println("Get access token failed: ", err)
+	} else {
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Println("Read access token failed: ", err)
+		} else {
+			var res struct {
+				AccessToken string  `json:"access_token"`
+				ExpiresIn   float64 `json:"expires_in"`
+			}
+			if err := json.Unmarshal(body, &res); err != nil {
+				log.Println("Parse access token failed: ", err)
+			} else {
+				return res.AccessToken, res.ExpiresIn
+			}
+		}
+	}
+	return "", 0
+}
+
+func postMessage(c chan interface{}, appid string, secret string) {
+	var access_token string
+	var last_auth time.Time
+	var expires float64
+	req_url := weixinHost + "/message/custom/send?access_token="
+	for {
+		msg := <-c
+		data, err := json.Marshal(&msg)
+		if err != nil {
+			log.Printf("Parse PostMessage failed: %s", msg)
+		} else {
+			now := time.Now()
+			if now.Sub(last_auth).Seconds() > expires {
+				access_token, expires = authAccessToken(appid, secret)
+				if len(access_token) > 0 {
+					last_auth = now
+				}
+			}
+			if len(access_token) > 0 {
+				r := bytes.NewReader(data)
+				_, err := http.Post(req_url+access_token,
+					"application/json; charset=utf-8", r)
+				if err != nil {
+					log.Println("PostMessage failed: ", err)
+				}
+			}
+		}
+	}
+}
+
 const (
 	replyText    = "<xml>%s<MsgType><![CDATA[text]]></MsgType><Content><![CDATA[%s]]></Content></xml>"
 	replyImage   = "<xml>%s<MsgType><![CDATA[image]]></MsgType><Image><MediaId><![CDATA[%s]]></MediaId></Image></xml>"
@@ -203,46 +279,51 @@ const (
 	replyArticle = "<item><Title><![CDATA[%s]]></Title> <Description><![CDATA[%s]]></Description><PicUrl><![CDATA[%s]]></PicUrl><Url><![CDATA[%s]]></Url></item>"
 )
 
-func (w responseWriter) fmtHeader() string {
+func (w responseWriter) replyHeader() string {
 	return fmt.Sprintf(replyHeader, w.toUserName, w.fromUserName, time.Now().Unix())
 }
 
 // Reply text message
-func (w responseWriter) WriteText(text string) {
-	msg := fmt.Sprintf(replyText, w.fmtHeader(), text)
+func (w responseWriter) ReplyText(text string) {
+	msg := fmt.Sprintf(replyText, w.replyHeader(), text)
 	w.writer.Write([]byte(msg))
 }
 
 // Reply image message
-func (w responseWriter) WriteImage(mediaId string) {
-	msg := fmt.Sprintf(replyImage, w.fmtHeader(), mediaId)
+func (w responseWriter) ReplyImage(mediaId string) {
+	msg := fmt.Sprintf(replyImage, w.replyHeader(), mediaId)
 	w.writer.Write([]byte(msg))
 }
 
 // Reply voice message
-func (w responseWriter) WriteVoice(mediaId string) {
-	msg := fmt.Sprintf(replyVoice, w.fmtHeader(), mediaId)
+func (w responseWriter) ReplyVoice(mediaId string) {
+	msg := fmt.Sprintf(replyVoice, w.replyHeader(), mediaId)
 	w.writer.Write([]byte(msg))
 }
 
 // Reply video message
-func (w responseWriter) WriteVideo(mediaId string, title string, description string) {
-	msg := fmt.Sprintf(replyVideo, w.fmtHeader(), mediaId, title, description)
+func (w responseWriter) ReplyVideo(mediaId string, title string, description string) {
+	msg := fmt.Sprintf(replyVideo, w.replyHeader(), mediaId, title, description)
 	w.writer.Write([]byte(msg))
 }
 
 // Reply music message
-func (w responseWriter) WriteMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string) {
-	msg := fmt.Sprintf(replyMusic, w.fmtHeader(), title, description, musicUrl, hqMusicUrl, thumbMediaId)
+func (w responseWriter) ReplyMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string) {
+	msg := fmt.Sprintf(replyMusic, w.replyHeader(), title, description, musicUrl, hqMusicUrl, thumbMediaId)
 	w.writer.Write([]byte(msg))
 }
 
 // Reply news message (max 10 news)
-func (w responseWriter) WriteNews(articles []ReplyArticle) {
+func (w responseWriter) ReplyNews(articles []ReplyArticle) {
 	var ctx string
 	for _, article := range articles {
 		ctx += fmt.Sprintf(replyArticle, article.Title, article.Description, article.PicUrl, article.Url)
 	}
-	msg := fmt.Sprintf(replyNews, w.fmtHeader(), len(articles), ctx)
+	msg := fmt.Sprintf(replyNews, w.replyHeader(), len(articles), ctx)
 	w.writer.Write([]byte(msg))
+}
+
+// Post text message
+func (w responseWriter) PostText(text string) {
+	w.wx.PostText(w.fromUserName, text)
 }
