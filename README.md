@@ -43,12 +43,12 @@ import (
 // 文本消息的处理函数
 func Echo(w weixin.ResponseWriter, r *weixin.Request) {
 	txt := r.Content // 获取用户发送的消息
-	w.WriteText(txt) // 返回一条文本消息
+	w.ReplyText(txt) // 返回一条文本消息
 }
 
 // 关注事件的处理函数
 func Subscribe(w weixin.ResponseWriter, r *weixin.Request) {
-	w.WriteText("欢迎关注") // 有新人关注，返回欢迎消息
+	w.ReplyText("欢迎关注") // 有新人关注，返回欢迎消息
 }
 
 func main() {
@@ -90,12 +90,12 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 
 需要发送被动响应消息，可通过weixin.ResponseWriter的下列方法完成
 
-* `WriteText(text)`														发送文本消息
-* `WriteImage(mediaId)`													发送图片消息
-* `WriteVoice(mediaId)`													发送语音消息
-* `WriteVideo(mediaId, title, description)`								发送视频消息
-* `WriteMusic(title, description, musicUrl, hqMusicUrl, thumbMediaId)`	发送音乐消息
-* `WriteNews(articles)`													发送图文消息
+* `ReplyText(text)`														回复文本消息
+* `ReplyImage(mediaId)`													回复图片消息
+* `ReplyVoice(mediaId)`													回复语音消息
+* `ReplyVideo(mediaId, title, description)`								回复视频消息
+* `ReplyMusic(title, description, musicUrl, hqMusicUrl, thumbMediaId)`	回复音乐消息
+* `ReplyNews(articles)`													回复图文消息
 
 ## 参考连接
 
