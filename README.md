@@ -1,22 +1,10 @@
-# 微信公众平台库-Go语言版本
+# 微信公众平台库 – Go语言版本
 
 ## 简介
 
 这是一个使用Go语言对微信公众平台的封装。参考了微信公众平台API文档
 
 [![GoDoc](http://godoc.org/github.com/wizjin/weixin?status.png)](http://godoc.org/github.com/wizjin/weixin)
-
-### 支持功能
-
-* Token验证URL有效性
-* 接收普通消息：文本消息，图片消息，语音消息，视频消息，地理位置消息，链接消息
-* 接收事件推送：关注/取消关注，扫描二维码事件，上报地理位置，自定义菜单
-* 发送被动响应消息：文本消息，图片消息，语音消息，视频消息，音乐消息，图文消息
-
-### 下一版本计划
-
-* 发送客服消息：文本消息，图片消息，语音消息，视频消息，音乐消息，图文消息
-* 多媒体文件处理：上传/下载多媒体文件
 
 ## 入门
 
@@ -94,7 +82,7 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 * `ReplyImage(mediaId)`													回复图片消息
 * `ReplyVoice(mediaId)`													回复语音消息
 * `ReplyVideo(mediaId, title, description)`								回复视频消息
-* `ReplyMusic(title, description, musicUrl, hqMusicUrl, thumbMediaId)`	回复音乐消息
+* `ReplyMusic(music)`	回复音乐消息
 * `ReplyNews(articles)`													回复图文消息
 
 ## 参考连接
@@ -107,3 +95,17 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 ## 版权声明
 
 This project is licensed under the MIT license, see [LICENSE](LICENSE).
+
+## 更新日志
+
+### Version 0.2 - upcoming
+
+* 发送客服消息：文本消息，图片消息，语音消息，视频消息，音乐消息，图文消息
+* 多媒体文件处理：上传/下载多媒体文件
+
+### Version 0.1 – 2013/12/17
+
+* Token验证URL有效性
+* 接收普通消息：文本消息，图片消息，语音消息，视频消息，地理位置消息，链接消息
+* 接收事件推送：关注/取消关注，扫描二维码事件，上报地理位置，自定义菜单
+* 发送被动响应消息：文本消息，图片消息，语音消息，视频消息，音乐消息，图文消息

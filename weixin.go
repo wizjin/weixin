@@ -22,7 +22,6 @@ const (
 	EventUnsubscribe = "unsubscribe"
 	EventScan        = "scan"
 	EventClick       = "CLICK"
-
 	// Message type
 	MsgTypeDefault          = ".*"
 	MsgTypeText             = "text"
@@ -71,8 +70,17 @@ type Request struct {
 	Recognition  string
 }
 
+// Use to reply music message
+type Music struct {
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	MusicUrl     string `json:"musicurl"`
+	HQMusicUrl   string `json:"hqmusicurl"`
+	ThumbMediaId string `json:"thumb_media_id"`
+}
+
 // Use to reply news message
-type ReplyArticle struct {
+type Article struct {
 	Title       string
 	Description string
 	PicUrl      string
@@ -81,12 +89,20 @@ type ReplyArticle struct {
 
 // Use to output reply
 type ResponseWriter interface {
+	// Reply message
 	ReplyText(text string)
 	ReplyImage(mediaId string)
 	ReplyVoice(mediaId string)
 	ReplyVideo(mediaId string, title string, description string)
-	ReplyMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string)
-	ReplyNews(articles []ReplyArticle)
+	ReplyMusic(music *Music)
+	ReplyNews(articles []Article)
+	// Post message
+	PostText(text string)
+	PostImage(mediaId string)
+	PostVoice(mediaId string)
+	PostVideo(mediaId string, title string, description string)
+	PostMusic(music *Music)
+	PostNews(articles []Article)
 }
 
 type responseWriter struct {
@@ -144,7 +160,83 @@ func (wx *Weixin) PostText(touser string, text string) {
 	msg.ToUser = touser
 	msg.MsgType = "text"
 	msg.Text.Content = text
-	wx.msgQueue <- msg
+	wx.msgQueue <- &msg
+}
+
+// Post image message
+func (wx *Weixin) PostImage(touser string, mediaId string) {
+	var msg struct {
+		ToUser  string `json:"touser"`
+		MsgType string `json:"msgtype"`
+		Image   struct {
+			MediaId string `json:"media_id"`
+		} `json:"image"`
+	}
+	msg.ToUser = touser
+	msg.MsgType = "image"
+	msg.Image.MediaId = mediaId
+	wx.msgQueue <- &msg
+}
+
+// Post voice message
+func (wx *Weixin) PostVoice(touser string, mediaId string) {
+	var msg struct {
+		ToUser  string `json:"touser"`
+		MsgType string `json:"msgtype"`
+		Voice   struct {
+			MediaId string `json:"media_id"`
+		} `json:"voice"`
+	}
+	msg.ToUser = touser
+	msg.MsgType = "voice"
+	msg.Voice.MediaId = mediaId
+	wx.msgQueue <- &msg
+}
+
+// Post video message
+func (wx *Weixin) PostVideo(touser string, m string, t string, d string) {
+	var msg struct {
+		ToUser  string `json:"touser"`
+		MsgType string `json:"msgtype"`
+		Video   struct {
+			MediaId     string `json:"media_id"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"video"`
+	}
+	msg.ToUser = touser
+	msg.MsgType = "video"
+	msg.Video.MediaId = m
+	msg.Video.Title = t
+	msg.Video.Description = d
+	wx.msgQueue <- &msg
+}
+
+// Post music message
+func (wx *Weixin) PostMusic(touser string, music *Music) {
+	var msg struct {
+		ToUser  string `json:"touser"`
+		MsgType string `json:"msgtype"`
+		Music   *Music `json:"music"`
+	}
+	msg.ToUser = touser
+	msg.MsgType = "video"
+	msg.Music = music
+	wx.msgQueue <- &msg
+}
+
+func (wx *Weixin) PostNews(touser string, articles []Article) {
+	var msg struct {
+		ToUser  string `json:"touser"`
+		MsgType string `json:"msgtype"`
+		News    struct {
+			Articles []Article `json:"articles"`
+		} `json:"news"`
+	}
+	msg.ToUser = touser
+	msg.MsgType = "news"
+	msg.News.Articles = articles
+	wx.msgQueue <- &msg
 }
 
 // Process weixin request and send response.
@@ -245,9 +337,9 @@ func postMessage(c chan interface{}, appid string, secret string) {
 	req_url := weixinHost + "/message/custom/send?access_token="
 	for {
 		msg := <-c
-		data, err := json.Marshal(&msg)
+		data, err := json.Marshal(msg)
 		if err != nil {
-			log.Printf("Parse PostMessage failed: %s", msg)
+			log.Printf("Parse PostMessage failed: %s", err)
 		} else {
 			now := time.Now()
 			if now.Sub(last_auth).Seconds() > expires {
@@ -308,13 +400,13 @@ func (w responseWriter) ReplyVideo(mediaId string, title string, description str
 }
 
 // Reply music message
-func (w responseWriter) ReplyMusic(title string, description string, musicUrl string, hqMusicUrl string, thumbMediaId string) {
-	msg := fmt.Sprintf(replyMusic, w.replyHeader(), title, description, musicUrl, hqMusicUrl, thumbMediaId)
+func (w responseWriter) ReplyMusic(m *Music) {
+	msg := fmt.Sprintf(replyMusic, w.replyHeader(), m.Title, m.Description, m.MusicUrl, m.HQMusicUrl, m.ThumbMediaId)
 	w.writer.Write([]byte(msg))
 }
 
 // Reply news message (max 10 news)
-func (w responseWriter) ReplyNews(articles []ReplyArticle) {
+func (w responseWriter) ReplyNews(articles []Article) {
 	var ctx string
 	for _, article := range articles {
 		ctx += fmt.Sprintf(replyArticle, article.Title, article.Description, article.PicUrl, article.Url)
@@ -325,5 +417,30 @@ func (w responseWriter) ReplyNews(articles []ReplyArticle) {
 
 // Post text message
 func (w responseWriter) PostText(text string) {
-	w.wx.PostText(w.fromUserName, text)
+	w.wx.PostText(w.toUserName, text)
+}
+
+// Post image message
+func (w responseWriter) PostImage(mediaId string) {
+	w.wx.PostImage(w.toUserName, mediaId)
+}
+
+// Post voice message
+func (w responseWriter) PostVoice(mediaId string) {
+	w.wx.PostVoice(w.toUserName, mediaId)
+}
+
+// Post video message
+func (w responseWriter) PostVideo(mediaId string, title string, desc string) {
+	w.wx.PostVideo(w.toUserName, mediaId, title, desc)
+}
+
+// Post music message
+func (w responseWriter) PostMusic(music *Music) {
+	w.wx.PostMusic(w.toUserName, music)
+}
+
+// Post news message
+func (w responseWriter) PostNews(articles []Article) {
+	w.wx.PostNews(w.toUserName, articles)
 }
