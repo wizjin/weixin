@@ -76,14 +76,14 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 
 ### 发送被动响应消息
 
-需要发送被动响应消息，可通过weixin.ResponseWriter的下列方法完成
+需要发送被动响应消息，可通过`weixin.ResponseWriter`的下列方法完成
 
-* `ReplyText(text)`														回复文本消息
-* `ReplyImage(mediaId)`													回复图片消息
-* `ReplyVoice(mediaId)`													回复语音消息
-* `ReplyVideo(mediaId, title, description)`								回复视频消息
-* `ReplyMusic(music)`	回复音乐消息
-* `ReplyNews(articles)`													回复图文消息
+* `ReplyText(text)`							回复文本消息
+* `ReplyImage(mediaId)`						回复图片消息
+* `ReplyVoice(mediaId)`						回复语音消息
+* `ReplyVideo(mediaId, title, description)`	回复视频消息
+* `ReplyMusic(music)`						回复音乐消息
+* `ReplyNews(articles)`						回复图文消息
 
 ## 参考连接
 
