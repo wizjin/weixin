@@ -85,6 +85,15 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 * `ReplyMusic(music)`						回复音乐消息
 * `ReplyNews(articles)`						回复图文消息
 
+### 发送客服消息
+
+* `PostText(text)`							发送文本消息
+* `PostImage(mediaId)`						发送图片消息
+* `PostVoice(mediaId)`						发送语音消息
+* `PostVideo(mediaId, title, description)`	发送视频消息
+* `PostMusic(music)`						发送音乐消息
+* `PostNews(articles)`						发送图文消息
+
 ## 参考连接
 
 * [Wiki](https://github.com/wizjin/weixin/wiki)
@@ -98,10 +107,13 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.2 - upcoming
+### Version 0.3 - upcoming
+
+* 多媒体文件处理：上传/下载多媒体文件
+
+### Version 0.2 - 2013/12/19
 
 * 发送客服消息：文本消息，图片消息，语音消息，视频消息，音乐消息，图文消息
-* 多媒体文件处理：上传/下载多媒体文件
 
 ### Version 0.1 – 2013/12/17
 
