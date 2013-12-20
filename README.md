@@ -30,8 +30,9 @@ import (
 
 // 文本消息的处理函数
 func Echo(w weixin.ResponseWriter, r *weixin.Request) {
-	txt := r.Content // 获取用户发送的消息
-	w.ReplyText(txt) // 返回一条文本消息
+	txt := r.Content			// 获取用户发送的消息
+	w.ReplyText(txt)			// 回复一条文本消息
+	w.PostText("Post:" + txt)	// 发送一条文本消息
 }
 
 // 关注事件的处理函数
@@ -41,7 +42,10 @@ func Subscribe(w weixin.ResponseWriter, r *weixin.Request) {
 
 func main() {
 	// my-token 验证微信公众平台的Token
-	mux := weixin.New("my-token", "", "")
+	// app-id, app-secret用于高级API调用。
+	// 如果仅使用接受和回复消息，则可以不填写，使用下面语句
+	// mux := weixin.New("my-token", "", "")
+	mux := weixin.New("my-token", "app-id", "app-secret")
 	// 注册文本消息的处理函数
 	mux.HandleFunc(weixin.MsgTypeText, Echo)
 	// 注册关注事件的处理函数
@@ -50,6 +54,9 @@ func main() {
 	http.ListenAndServe(":80", nil) // 启动接收微信数据服务器
 }
 ```
+
+微信公众平台要求在收到消息后5秒内回复消息（Reply接口）
+如果时间操作很长，则可以使用Post接口发送消息
 
 ### 处理函数
 
