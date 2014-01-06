@@ -339,6 +339,7 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 			if err := json.Unmarshal(body, &res); err != nil {
 				log.Println("Parse access token failed: ", err)
 			} else {
+				log.Printf("AuthAccessToken token=%s expires_in=%d", res.AccessToken, res.ExpiresIn)
 				return res.AccessToken, time.Duration(res.ExpiresIn * 1000 * 1000 * 1000)
 			}
 		}
@@ -348,6 +349,7 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 
 func createAccessToken(c chan accessToken, appid string, secret string) {
 	token := accessToken{"", time.Now()}
+	c <- token
 	for {
 		if time.Since(token.expires).Seconds() >= 0 {
 			var expires time.Duration
@@ -370,6 +372,8 @@ func postMessage(c chan accessToken, msg interface{}) {
 				_, err := http.Post(req_url+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
 				if err != nil {
 					log.Println("PostMessage failed: ", err)
+				} else {
+					log.Println("PostMessage sucessed.")
 				}
 				return
 			}
