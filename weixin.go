@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -38,7 +39,8 @@ const (
 	MsgTypeEventClick       = msgEvent + "\\." + EventClick
 
 	// Weixin host URL
-	weixinHost = "https://api.weixin.qq.com/cgi-bin"
+	weixinHost    = "https://api.weixin.qq.com/cgi-bin"
+	weixinFileURL = "http://file.api.weixin.qq.com/cgi-bin/media"
 
 	// Reply format
 	replyText    = "<xml>%s<MsgType><![CDATA[text]]></MsgType><Content><![CDATA[%s]]></Content></xml>"
@@ -118,7 +120,7 @@ type ResponseWriter interface {
 	PostMusic(music *Music) error
 	PostNews(articles []Article) error
 	// Media operator
-	// TODO: Add Upload/Download media file.
+	DownloadMedia(mediaId string, writer io.Writer) error
 }
 
 type responseWriter struct {
@@ -126,6 +128,11 @@ type responseWriter struct {
 	writer       http.ResponseWriter
 	toUserName   string
 	fromUserName string
+}
+
+type response struct {
+	ErrorCode    int    `json:"errcode"`
+	ErrorMessage string `json:"errmsg"`
 }
 
 // Callback function
@@ -260,6 +267,10 @@ func (wx *Weixin) PostNews(touser string, articles []Article) error {
 	return postMessage(wx.tokenChan, &msg)
 }
 
+func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
+	return downloadMedia(wx.tokenChan, mediaId, writer)
+}
+
 // Process weixin request and send response.
 func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !checkSignature(wx.token, w, r) {
@@ -362,7 +373,7 @@ func createAccessToken(c chan accessToken, appid string, secret string) {
 }
 
 func postMessage(c chan accessToken, msg interface{}) error {
-	req_url := weixinHost + "/message/custom/send?access_token="
+	reqURL := weixinHost + "/message/custom/send?access_token="
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
@@ -370,7 +381,7 @@ func postMessage(c chan accessToken, msg interface{}) error {
 	for i := 0; i < 3; i++ {
 		token := <-c
 		if time.Since(token.expires).Seconds() < 0 {
-			r, err := http.Post(req_url+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
+			r, err := http.Post(reqURL+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
@@ -379,10 +390,7 @@ func postMessage(c chan accessToken, msg interface{}) error {
 			if err != nil {
 				return err
 			}
-			var result struct {
-				ErrorCode    int    `json:"errcode"`
-				ErrorMessage string `json:"errmsg"`
-			}
+			var result response
 			if err := xml.Unmarshal(reply, &result); err != nil {
 				return err
 			} else {
@@ -398,6 +406,43 @@ func postMessage(c chan accessToken, msg interface{}) error {
 		}
 	}
 	return errors.New("WeiXin post message too many times")
+}
+
+func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
+	reqURL := weixinFileURL + "/get?media_id=" + mediaId + "&access_token="
+	for i := 0; i < 3; i++ {
+		token := <-c
+		if time.Since(token.expires).Seconds() < 0 {
+			r, err := http.Get(reqURL + token.token)
+			if err != nil {
+				return err
+			}
+			defer r.Body.Close()
+			if r.Header.Get("Content-Type") != "text/plain" {
+				_, err := io.Copy(writer, r.Body)
+				return err
+			} else {
+				reply, err := ioutil.ReadAll(r.Body)
+				if err != nil {
+					return err
+				}
+				var result response
+				if err := xml.Unmarshal(reply, &result); err != nil {
+					return err
+				} else {
+					switch result.ErrorCode {
+					case 0:
+						return nil
+					case 42001: // access_token timeout and retry
+						continue
+					default:
+						return errors.New(fmt.Sprintf("WeiXin reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+					}
+				}
+			}
+		}
+	}
+	return errors.New("WeiXin download media too many times")
 }
 
 // Format reply message header
@@ -473,4 +518,9 @@ func (w responseWriter) PostMusic(music *Music) error {
 // Post news message
 func (w responseWriter) PostNews(articles []Article) error {
 	return w.wx.PostNews(w.toUserName, articles)
+}
+
+// Download media file
+func (w responseWriter) DownloadMedia(mediaId string, writer io.Writer) error {
+	return w.wx.DownloadMedia(mediaId, writer)
 }
