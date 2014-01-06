@@ -133,10 +133,15 @@ type route struct {
 	handler HandlerFunc
 }
 
+type accessToken struct {
+	token   string
+	expires time.Time
+}
+
 type Weixin struct {
-	token    string
-	routes   []*route
-	msgQueue chan interface{}
+	token     string
+	routes    []*route
+	tokenChan chan accessToken
 }
 
 // Create a Weixin instance
@@ -144,8 +149,8 @@ func New(token string, appid string, secret string) *Weixin {
 	wx := &Weixin{}
 	wx.token = token
 	if len(appid) > 0 && len(secret) > 0 {
-		wx.msgQueue = make(chan interface{}, 10)
-		go postMessage(wx.msgQueue, appid, secret)
+		wx.tokenChan = make(chan accessToken, 1)
+		go createAccessToken(wx.tokenChan, appid, secret)
 	}
 	return wx
 }
@@ -173,7 +178,7 @@ func (wx *Weixin) PostText(touser string, text string) {
 	msg.ToUser = touser
 	msg.MsgType = "text"
 	msg.Text.Content = text
-	wx.msgQueue <- &msg
+	postMessage(wx.tokenChan, &msg)
 }
 
 // Post image message
@@ -188,7 +193,7 @@ func (wx *Weixin) PostImage(touser string, mediaId string) {
 	msg.ToUser = touser
 	msg.MsgType = "image"
 	msg.Image.MediaId = mediaId
-	wx.msgQueue <- &msg
+	postMessage(wx.tokenChan, &msg)
 }
 
 // Post voice message
@@ -203,7 +208,7 @@ func (wx *Weixin) PostVoice(touser string, mediaId string) {
 	msg.ToUser = touser
 	msg.MsgType = "voice"
 	msg.Voice.MediaId = mediaId
-	wx.msgQueue <- &msg
+	postMessage(wx.tokenChan, &msg)
 }
 
 // Post video message
@@ -222,7 +227,7 @@ func (wx *Weixin) PostVideo(touser string, m string, t string, d string) {
 	msg.Video.MediaId = m
 	msg.Video.Title = t
 	msg.Video.Description = d
-	wx.msgQueue <- &msg
+	postMessage(wx.tokenChan, &msg)
 }
 
 // Post music message
@@ -235,7 +240,7 @@ func (wx *Weixin) PostMusic(touser string, music *Music) {
 	msg.ToUser = touser
 	msg.MsgType = "video"
 	msg.Music = music
-	wx.msgQueue <- &msg
+	postMessage(wx.tokenChan, &msg)
 }
 
 func (wx *Weixin) PostNews(touser string, articles []Article) {
@@ -249,7 +254,7 @@ func (wx *Weixin) PostNews(touser string, articles []Article) {
 	msg.ToUser = touser
 	msg.MsgType = "news"
 	msg.News.Articles = articles
-	wx.msgQueue <- &msg
+	postMessage(wx.tokenChan, &msg)
 }
 
 // Process weixin request and send response.
@@ -317,7 +322,7 @@ func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
 	return fmt.Sprintf("%x", h.Sum(nil)) == signature
 }
 
-func authAccessToken(appid string, secret string) (string, float64) {
+func authAccessToken(appid string, secret string) (string, time.Duration) {
 	resp, err := http.Get(weixinHost + "/token?grant_type=client_credential&appid=" + appid + "&secret=" + secret)
 	if err != nil {
 		log.Println("Get access token failed: ", err)
@@ -328,44 +333,45 @@ func authAccessToken(appid string, secret string) (string, float64) {
 			log.Println("Read access token failed: ", err)
 		} else {
 			var res struct {
-				AccessToken string  `json:"access_token"`
-				ExpiresIn   float64 `json:"expires_in"`
+				AccessToken string `json:"access_token"`
+				ExpiresIn   int64  `json:"expires_in"`
 			}
 			if err := json.Unmarshal(body, &res); err != nil {
 				log.Println("Parse access token failed: ", err)
 			} else {
-				return res.AccessToken, res.ExpiresIn
+				return res.AccessToken, time.Duration(res.ExpiresIn * 1000 * 1000 * 1000)
 			}
 		}
 	}
 	return "", 0
 }
 
-func postMessage(c chan interface{}, appid string, secret string) {
-	var access_token string
-	var last_auth time.Time
-	var expires float64
-	req_url := weixinHost + "/message/custom/send?access_token="
+func createAccessToken(c chan accessToken, appid string, secret string) {
+	token := accessToken{"", time.Now()}
 	for {
-		msg := <-c
-		data, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("Parse PostMessage failed: %s", err)
-		} else {
-			now := time.Now()
-			if now.Sub(last_auth).Seconds() > expires {
-				access_token, expires = authAccessToken(appid, secret)
-				if len(access_token) > 0 {
-					last_auth = now
-				}
-			}
-			if len(access_token) > 0 {
-				r := bytes.NewReader(data)
-				_, err := http.Post(req_url+access_token,
-					"application/json; charset=utf-8", r)
+		if time.Since(token.expires).Seconds() >= 0 {
+			var expires time.Duration
+			token.token, expires = authAccessToken(appid, secret)
+			token.expires = time.Now().Add(expires)
+		}
+		c <- token
+	}
+}
+
+func postMessage(c chan accessToken, msg interface{}) {
+	req_url := weixinHost + "/message/custom/send?access_token="
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Parse PostMessage failed: %s", err)
+	} else {
+		for {
+			token := <-c
+			if time.Since(token.expires).Seconds() < 0 {
+				_, err := http.Post(req_url+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
 				if err != nil {
 					log.Println("PostMessage failed: ", err)
 				}
+				return
 			}
 		}
 	}
