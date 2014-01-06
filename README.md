@@ -43,7 +43,7 @@ func Subscribe(w weixin.ResponseWriter, r *weixin.Request) {
 func main() {
 	// my-token 验证微信公众平台的Token
 	// app-id, app-secret用于高级API调用。
-	// 如果仅使用接受和回复消息，则可以不填写，使用下面语句
+	// 如果仅使用接收/回复消息，则可以不填写，使用下面语句
 	// mux := weixin.New("my-token", "", "")
 	mux := weixin.New("my-token", "app-id", "app-secret")
 	// 注册文本消息的处理函数
@@ -100,6 +100,26 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 * `PostVideo(mediaId, title, description)`	发送视频消息
 * `PostMusic(music)`						发送音乐消息
 * `PostNews(articles)`						发送图文消息
+
+### 下载多媒体文件
+
+使用如下函数可以用来下载多媒体文件:
+
+`DownloadMedia(mediaId string, writer io.Writer)`
+
+示例 (收到一条图片消息，然后保存图片到本地文件):
+
+```Go
+func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
+	file, err := os.Create("/my-file-path") // 创建本地文件文件
+	if err != nil {
+		w.ReplyText("保存图片失败")
+	} else {
+		w.DownloadMedia(r.MediaId, file) // 下载文件并保存到本地
+		w.ReplyText("保存图片成功")
+	}
+}
+```
 
 ## 参考连接
 
