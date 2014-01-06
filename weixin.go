@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -110,12 +111,14 @@ type ResponseWriter interface {
 	ReplyMusic(music *Music)
 	ReplyNews(articles []Article)
 	// Post message
-	PostText(text string)
-	PostImage(mediaId string)
-	PostVoice(mediaId string)
-	PostVideo(mediaId string, title string, description string)
-	PostMusic(music *Music)
-	PostNews(articles []Article)
+	PostText(text string) error
+	PostImage(mediaId string) error
+	PostVoice(mediaId string) error
+	PostVideo(mediaId string, title string, description string) error
+	PostMusic(music *Music) error
+	PostNews(articles []Article) error
+	// Media operator
+	// TODO: Add Upload/Download media file.
 }
 
 type responseWriter struct {
@@ -149,7 +152,7 @@ func New(token string, appid string, secret string) *Weixin {
 	wx := &Weixin{}
 	wx.token = token
 	if len(appid) > 0 && len(secret) > 0 {
-		wx.tokenChan = make(chan accessToken, 1)
+		wx.tokenChan = make(chan accessToken)
 		go createAccessToken(wx.tokenChan, appid, secret)
 	}
 	return wx
@@ -167,7 +170,7 @@ func (wx *Weixin) HandleFunc(pattern string, handler HandlerFunc) {
 }
 
 // Post text message
-func (wx *Weixin) PostText(touser string, text string) {
+func (wx *Weixin) PostText(touser string, text string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
@@ -178,11 +181,11 @@ func (wx *Weixin) PostText(touser string, text string) {
 	msg.ToUser = touser
 	msg.MsgType = "text"
 	msg.Text.Content = text
-	postMessage(wx.tokenChan, &msg)
+	return postMessage(wx.tokenChan, &msg)
 }
 
 // Post image message
-func (wx *Weixin) PostImage(touser string, mediaId string) {
+func (wx *Weixin) PostImage(touser string, mediaId string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
@@ -193,11 +196,11 @@ func (wx *Weixin) PostImage(touser string, mediaId string) {
 	msg.ToUser = touser
 	msg.MsgType = "image"
 	msg.Image.MediaId = mediaId
-	postMessage(wx.tokenChan, &msg)
+	return postMessage(wx.tokenChan, &msg)
 }
 
 // Post voice message
-func (wx *Weixin) PostVoice(touser string, mediaId string) {
+func (wx *Weixin) PostVoice(touser string, mediaId string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
@@ -208,11 +211,11 @@ func (wx *Weixin) PostVoice(touser string, mediaId string) {
 	msg.ToUser = touser
 	msg.MsgType = "voice"
 	msg.Voice.MediaId = mediaId
-	postMessage(wx.tokenChan, &msg)
+	return postMessage(wx.tokenChan, &msg)
 }
 
 // Post video message
-func (wx *Weixin) PostVideo(touser string, m string, t string, d string) {
+func (wx *Weixin) PostVideo(touser string, m string, t string, d string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
@@ -227,11 +230,11 @@ func (wx *Weixin) PostVideo(touser string, m string, t string, d string) {
 	msg.Video.MediaId = m
 	msg.Video.Title = t
 	msg.Video.Description = d
-	postMessage(wx.tokenChan, &msg)
+	return postMessage(wx.tokenChan, &msg)
 }
 
 // Post music message
-func (wx *Weixin) PostMusic(touser string, music *Music) {
+func (wx *Weixin) PostMusic(touser string, music *Music) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
@@ -240,10 +243,10 @@ func (wx *Weixin) PostMusic(touser string, music *Music) {
 	msg.ToUser = touser
 	msg.MsgType = "video"
 	msg.Music = music
-	postMessage(wx.tokenChan, &msg)
+	return postMessage(wx.tokenChan, &msg)
 }
 
-func (wx *Weixin) PostNews(touser string, articles []Article) {
+func (wx *Weixin) PostNews(touser string, articles []Article) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
@@ -254,7 +257,7 @@ func (wx *Weixin) PostNews(touser string, articles []Article) {
 	msg.ToUser = touser
 	msg.MsgType = "news"
 	msg.News.Articles = articles
-	postMessage(wx.tokenChan, &msg)
+	return postMessage(wx.tokenChan, &msg)
 }
 
 // Process weixin request and send response.
@@ -263,13 +266,11 @@ func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
-
 	// Verify request
 	if r.Method == "GET" {
 		fmt.Fprintf(w, r.FormValue("echostr"))
 		return
 	}
-
 	// Process message
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -360,25 +361,43 @@ func createAccessToken(c chan accessToken, appid string, secret string) {
 	}
 }
 
-func postMessage(c chan accessToken, msg interface{}) {
+func postMessage(c chan accessToken, msg interface{}) error {
 	req_url := weixinHost + "/message/custom/send?access_token="
 	data, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Parse PostMessage failed: %s", err)
-	} else {
-		for {
-			token := <-c
-			if time.Since(token.expires).Seconds() < 0 {
-				_, err := http.Post(req_url+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
-				if err != nil {
-					log.Println("PostMessage failed: ", err)
-				} else {
-					log.Println("PostMessage sucessed.")
+		return err
+	}
+	for i := 0; i < 3; i++ {
+		token := <-c
+		if time.Since(token.expires).Seconds() < 0 {
+			r, err := http.Post(req_url+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer r.Body.Close()
+			reply, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return err
+			}
+			var result struct {
+				ErrorCode    int    `json:"errcode"`
+				ErrorMessage string `json:"errmsg"`
+			}
+			if err := xml.Unmarshal(reply, &result); err != nil {
+				return err
+			} else {
+				switch result.ErrorCode {
+				case 0:
+					return nil
+				case 42001: // access_token timeout and retry
+					continue
+				default:
+					return errors.New(fmt.Sprintf("WeiXin reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
 				}
-				return
 			}
 		}
 	}
+	return errors.New("WeiXin post message too many times")
 }
 
 // Format reply message header
@@ -427,31 +446,31 @@ func (w responseWriter) ReplyNews(articles []Article) {
 }
 
 // Post text message
-func (w responseWriter) PostText(text string) {
-	w.wx.PostText(w.toUserName, text)
+func (w responseWriter) PostText(text string) error {
+	return w.wx.PostText(w.toUserName, text)
 }
 
 // Post image message
-func (w responseWriter) PostImage(mediaId string) {
-	w.wx.PostImage(w.toUserName, mediaId)
+func (w responseWriter) PostImage(mediaId string) error {
+	return w.wx.PostImage(w.toUserName, mediaId)
 }
 
 // Post voice message
-func (w responseWriter) PostVoice(mediaId string) {
-	w.wx.PostVoice(w.toUserName, mediaId)
+func (w responseWriter) PostVoice(mediaId string) error {
+	return w.wx.PostVoice(w.toUserName, mediaId)
 }
 
 // Post video message
-func (w responseWriter) PostVideo(mediaId string, title string, desc string) {
-	w.wx.PostVideo(w.toUserName, mediaId, title, desc)
+func (w responseWriter) PostVideo(mediaId string, title string, desc string) error {
+	return w.wx.PostVideo(w.toUserName, mediaId, title, desc)
 }
 
 // Post music message
-func (w responseWriter) PostMusic(music *Music) {
-	w.wx.PostMusic(w.toUserName, music)
+func (w responseWriter) PostMusic(music *Music) error {
+	return w.wx.PostMusic(w.toUserName, music)
 }
 
 // Post news message
-func (w responseWriter) PostNews(articles []Article) {
-	w.wx.PostNews(w.toUserName, articles)
+func (w responseWriter) PostNews(articles []Article) error {
+	return w.wx.PostNews(w.toUserName, articles)
 }
