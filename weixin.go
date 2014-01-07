@@ -48,6 +48,8 @@ const (
 	// Weixin host URL
 	weixinHost    = "https://api.weixin.qq.com/cgi-bin"
 	weixinFileURL = "http://file.api.weixin.qq.com/cgi-bin/media"
+	// Max retry count
+	retryMaxN = 3
 	// Reply format
 	replyText    = "<xml>%s<MsgType><![CDATA[text]]></MsgType><Content><![CDATA[%s]]></Content></xml>"
 	replyImage   = "<xml>%s<MsgType><![CDATA[image]]></MsgType><Image><MediaId><![CDATA[%s]]></MediaId></Image></xml>"
@@ -414,7 +416,7 @@ func postMessage(c chan accessToken, msg interface{}) error {
 	if err != nil {
 		return err
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < retryMaxN; i++ {
 		token := <-c
 		if time.Since(token.expires).Seconds() < 0 {
 			r, err := http.Post(reqURL+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
@@ -446,7 +448,7 @@ func postMessage(c chan accessToken, msg interface{}) error {
 
 func uploadMedia(c chan accessToken, mediaType string, filename string, reader io.Reader) (string, error) {
 	reqURL := weixinFileURL + "/upload?type=" + mediaType + "&access_token="
-	for i := 0; i < 3; i++ {
+	for i := 0; i < retryMaxN; i++ {
 		token := <-c
 		if time.Since(token.expires).Seconds() < 0 {
 			bodyBuf := &bytes.Buffer{}
@@ -495,7 +497,7 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 
 func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
 	reqURL := weixinFileURL + "/get?media_id=" + mediaId + "&access_token="
-	for i := 0; i < 3; i++ {
+	for i := 0; i < retryMaxN; i++ {
 		token := <-c
 		if time.Since(token.expires).Seconds() < 0 {
 			r, err := http.Get(reqURL + token.token)
