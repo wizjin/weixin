@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"regexp"
 	"sort"
@@ -37,11 +38,14 @@ const (
 	MsgTypeEventUnsubscribe = msgEvent + "\\." + EventUnsubscribe
 	MsgTypeEventScan        = msgEvent + "\\." + EventScan
 	MsgTypeEventClick       = msgEvent + "\\." + EventClick
-
+	// Media type
+	MediaTypeImage = "image"
+	MediaTypeVoice = "voice"
+	MediaTypeVideo = "video"
+	MediaTypeThumb = "thumb"
 	// Weixin host URL
 	weixinHost    = "https://api.weixin.qq.com/cgi-bin"
 	weixinFileURL = "http://file.api.weixin.qq.com/cgi-bin/media"
-
 	// Reply format
 	replyText    = "<xml>%s<MsgType><![CDATA[text]]></MsgType><Content><![CDATA[%s]]></Content></xml>"
 	replyImage   = "<xml>%s<MsgType><![CDATA[image]]></MsgType><Image><MediaId><![CDATA[%s]]></MediaId></Image></xml>"
@@ -120,6 +124,7 @@ type ResponseWriter interface {
 	PostMusic(music *Music) error
 	PostNews(articles []Article) error
 	// Media operator
+	UploadMedia(mediaType string, reader io.Reader) (string, error)
 	DownloadMedia(mediaId string, writer io.Writer) error
 }
 
@@ -267,6 +272,10 @@ func (wx *Weixin) PostNews(touser string, articles []Article) error {
 	return postMessage(wx.tokenChan, &msg)
 }
 
+func (wx *Weixin) UploadMedia(mediaType string, reader io.Reader) (string, error) {
+	return uploadMedia(wx.tokenChan, mediaType, reader)
+}
+
 func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
 	return downloadMedia(wx.tokenChan, mediaId, writer)
 }
@@ -408,6 +417,57 @@ func postMessage(c chan accessToken, msg interface{}) error {
 	return errors.New("WeiXin post message too many times")
 }
 
+func uploadMedia(c chan accessToken, mediaType string, reader io.Reader) (string, error) {
+	reqURL := weixinFileURL + "/upload?type=" + mediaType + "&access_token="
+	for i := 0; i < 3; i++ {
+		token := <-c
+		if time.Since(token.expires).Seconds() < 0 {
+			bodyBuf := &bytes.Buffer{}
+			bodyWriter := multipart.NewWriter(bodyBuf)
+			fileWriter, err := bodyWriter.CreateFormFile("filename", "")
+			if err != nil {
+				log.Println("error writing to buffer:", err)
+				return "", err
+			}
+			if _, err = io.Copy(fileWriter, reader); err != nil {
+				log.Println("error copy to biffer:", err)
+				return "", err
+			}
+			contentType := bodyWriter.FormDataContentType()
+			bodyWriter.Close()
+			r, err := http.Post(reqURL+token.token, contentType, bodyBuf)
+			if err != nil {
+				log.Println("error post:", err)
+				return "", err
+			}
+			defer r.Body.Close()
+			reply, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return "", err
+			}
+			var result struct {
+				response
+				Type      string `json:"type"`
+				MediaId   string `json:"media_id"`
+				CreatedAt int64  `json:"created_at"`
+			}
+			if err := xml.Unmarshal(reply, &result); err != nil {
+				return "", err
+			} else {
+				switch result.ErrorCode {
+				case 0:
+					return result.MediaId, nil
+				case 42001: // access_token timeout and retry
+					continue
+				default:
+					return "", errors.New(fmt.Sprintf("WeiXin upload[%d]: %s", result.ErrorCode, result.ErrorMessage))
+				}
+			}
+		}
+	}
+	return "", errors.New("WeiXin upload media too many times")
+}
+
 func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
 	reqURL := weixinFileURL + "/get?media_id=" + mediaId + "&access_token="
 	for i := 0; i < 3; i++ {
@@ -436,7 +496,7 @@ func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
 					case 42001: // access_token timeout and retry
 						continue
 					default:
-						return errors.New(fmt.Sprintf("WeiXin reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+						return errors.New(fmt.Sprintf("WeiXin download[%d]: %s", result.ErrorCode, result.ErrorMessage))
 					}
 				}
 			}
@@ -518,6 +578,11 @@ func (w responseWriter) PostMusic(music *Music) error {
 // Post news message
 func (w responseWriter) PostNews(articles []Article) error {
 	return w.wx.PostNews(w.toUserName, articles)
+}
+
+// Upload media file
+func (w responseWriter) UploadMedia(mediaType string, reader io.Reader) (string, error) {
+	return w.wx.UploadMedia(mediaType, reader)
 }
 
 // Download media file
