@@ -13,6 +13,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -277,17 +278,23 @@ func (wx *Weixin) PostNews(touser string, articles []Article) error {
 }
 
 // Upload media from local file
-func (wx *Weixin) UploadMediaFromFile(mediaType string, filepath string) (string, error) {
-	file, err := os.Open(filepath)
+func (wx *Weixin) UploadMediaFromFile(mediaType string, fp string) (string, error) {
+	file, err := os.Open(fp)
 	if err != nil {
 		return "", err
 	}
-	return wx.UploadMedia(mediaType, filepath, reader)
+	defer file.Close()
+	return wx.UploadMedia(mediaType, filepath.Base(fp), file)
 }
 
 // Download media and save to local file
-func (wx *Weixin) DownloadMediaToFile(mediaId string, filepath string) error {
-	return w.wx.DownloadMediaToFile(mediaId, filepath)
+func (wx *Weixin) DownloadMediaToFile(mediaId string, fp string) error {
+	file, err := os.Create(fp)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return wx.DownloadMedia(mediaId, file)
 }
 
 // Upload media with media
@@ -295,6 +302,7 @@ func (wx *Weixin) UploadMedia(mediaType string, filename string, reader io.Reade
 	return uploadMedia(wx.tokenChan, mediaType, filename, reader)
 }
 
+// Download media with media
 func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
 	return downloadMedia(wx.tokenChan, mediaId, writer)
 }
