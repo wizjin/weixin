@@ -387,7 +387,7 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 			if err := json.Unmarshal(body, &res); err != nil {
 				log.Println("Parse access token failed: ", err)
 			} else {
-				log.Printf("AuthAccessToken token=%s expires_in=%d", res.AccessToken, res.ExpiresIn)
+				//log.Printf("AuthAccessToken token=%s expires_in=%d", res.AccessToken, res.ExpiresIn)
 				return res.AccessToken, time.Duration(res.ExpiresIn * 1000 * 1000 * 1000)
 			}
 		}
