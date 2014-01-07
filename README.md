@@ -101,21 +101,37 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 * `PostMusic(music)`						发送音乐消息
 * `PostNews(articles)`						发送图文消息
 
-### 下载多媒体文件
+### 上传/下载多媒体文件
+
+使用如下函数可以用来上传多媒体文件:
+
+`UploadMediaFromFile(mediaType string, filepath string)`
+
+示例 (用一张本地图片来返回图片消息):
+
+```Go
+func ReciveMessage(w weixin.ResponseWriter, r *weixin.Request) {
+	mediaId, err := w.UploadMediaFromFile(weixin.MediaTypeImage, "/my-file-path") // 上传本地文件并获取MediaID
+	if err != nil {
+		w.ReplyText("保存图片失败")
+	} else {
+		w.ReplyImage(mediaId)	// 利用获取的MediaId来返回图片消息
+	}
+}
+```
 
 使用如下函数可以用来下载多媒体文件:
 
-`DownloadMedia(mediaId string, writer io.Writer)`
+`DownloadMediaToFile(mediaId string, filepath string)`
 
 示例 (收到一条图片消息，然后保存图片到本地文件):
 
 ```Go
 func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
-	file, err := os.Create("/my-file-path") // 创建本地文件文件
+	err := w.DownloadMediaToFile(r.MediaId, "/my-file-path") // 下载文件并保存到本地
 	if err != nil {
 		w.ReplyText("保存图片失败")
 	} else {
-		w.DownloadMedia(r.MediaId, file) // 下载文件并保存到本地
 		w.ReplyText("保存图片成功")
 	}
 }
