@@ -111,9 +111,10 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 
 ```Go
 func ReciveMessage(w weixin.ResponseWriter, r *weixin.Request) {
-	mediaId, err := w.UploadMediaFromFile(weixin.MediaTypeImage, "/my-file-path") // 上传本地文件并获取MediaID
+	// 上传本地文件并获取MediaID
+	mediaId, err := w.UploadMediaFromFile(weixin.MediaTypeImage, "/my-file-path")
 	if err != nil {
-		w.ReplyText("保存图片失败")
+		w.ReplyText("上传图片失败")
 	} else {
 		w.ReplyImage(mediaId)	// 利用获取的MediaId来返回图片消息
 	}
@@ -128,7 +129,8 @@ func ReciveMessage(w weixin.ResponseWriter, r *weixin.Request) {
 
 ```Go
 func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
-	err := w.DownloadMediaToFile(r.MediaId, "/my-file-path") // 下载文件并保存到本地
+	// 下载文件并保存到本地
+	err := w.DownloadMediaToFile(r.MediaId, "/my-file-path")
 	if err != nil {
 		w.ReplyText("保存图片失败")
 	} else {
