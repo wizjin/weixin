@@ -150,7 +150,11 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.3 - upcoming
+### Version 0.4 - upcoming
+
+* 创建/换取二维码
+
+### Version 0.3 - 2014/01/07
 
 * 多媒体文件处理：上传/下载多媒体文件
 
