@@ -1,0 +1,5 @@
+language: go
+
+go:
+  - 0.4
+  - tip
