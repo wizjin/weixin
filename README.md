@@ -4,6 +4,7 @@
 
 这是一个使用Go语言对微信公众平台的封装。参考了微信公众平台API文档
 
+[![Build Status](https://travis-ci.org/wizjin/weixin.png?branch=master)](https://travis-ci.org/wizjin/weixin)
 [![GoDoc](http://godoc.org/github.com/wizjin/weixin?status.png)](http://godoc.org/github.com/wizjin/weixin)
 
 ## 入门
