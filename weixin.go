@@ -590,6 +590,11 @@ func (w responseWriter) replyHeader() string {
 	return fmt.Sprintf(replyHeader, w.toUserName, w.fromUserName, time.Now().Unix())
 }
 
+// Return weixin instance
+func (w responseWriter) GetWeixin() *Weixin {
+	return w.wx
+}
+
 // Reply text message
 func (w responseWriter) ReplyText(text string) {
 	msg := fmt.Sprintf(replyText, w.replyHeader(), text)
