@@ -186,7 +186,12 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.4 - upcoming
+### Version 0.5 - upcoming
+
+* 用户管理
+* 自定义菜单
+
+### Version 0.4 - 2014/02/07
 
 * 创建/换取二维码
 

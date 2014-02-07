@@ -124,6 +124,8 @@ type QRScene struct {
 
 // Use to output reply
 type ResponseWriter interface {
+	// Get weixin
+	GetWeixin() *Weixin
 	// Reply message
 	ReplyText(text string)
 	ReplyImage(mediaId string)
