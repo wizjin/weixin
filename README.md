@@ -112,9 +112,10 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 
 ```Go
 func ReciveMessage(w weixin.ResponseWriter, r *weixin.Request) {
-	mediaId, err := w.UploadMediaFromFile(weixin.MediaTypeImage, "/my-file-path") // 上传本地文件并获取MediaID
+	// 上传本地文件并获取MediaID
+	mediaId, err := w.UploadMediaFromFile(weixin.MediaTypeImage, "/my-file-path")
 	if err != nil {
-		w.ReplyText("保存图片失败")
+		w.ReplyText("上传图片失败")
 	} else {
 		w.ReplyImage(mediaId)	// 利用获取的MediaId来返回图片消息
 	}
@@ -129,12 +130,46 @@ func ReciveMessage(w weixin.ResponseWriter, r *weixin.Request) {
 
 ```Go
 func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
-	err := w.DownloadMediaToFile(r.MediaId, "/my-file-path") // 下载文件并保存到本地
+	// 下载文件并保存到本地
+	err := w.DownloadMediaToFile(r.MediaId, "/my-file-path")
 	if err != nil {
 		w.ReplyText("保存图片失败")
 	} else {
 		w.ReplyText("保存图片成功")
 	}
+}
+```
+
+### 创建/换取二维码
+
+示例，创建临时二维码
+
+```Go
+func CreateQRScene(wx *Weixin) {
+	// 二维码ID - 1000
+	// 过期时间 - 1800秒
+	qr, err := wx.CreateQRScene(100, 1800)
+	if err != nil {
+		log.Print(err)
+	} else {
+		url := qr.ToURL() // 获取二维码的URL
+		log.Print(url)
+	}	
+}
+```
+
+示例，创建永久二维码
+
+```Go
+func CreateQRScene(wx *Weixin) {
+	// 二维码ID - 1001
+	qr, err := wx.CreateQRLimitScene(1001)
+	if err != nil {
+		log.Print(err)
+	} else {
+		url := qr.ToURL() // 获取二维码的URL
+		log.Print(url)
+	}	
 }
 ```
 
@@ -151,7 +186,12 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.4 - upcoming
+### Version 0.5 - upcoming
+
+* 用户管理
+* 自定义菜单
+
+### Version 0.4 - 2014/02/07
 
 * 创建/换取二维码
 
