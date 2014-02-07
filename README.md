@@ -140,6 +140,39 @@ func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
 }
 ```
 
+### 创建/换取二维码
+
+示例，创建临时二维码
+
+```Go
+func CreateQRScene(wx *Weixin) {
+	// 二维码ID - 1000
+	// 过期时间 - 1800秒
+	qr, err := wx.CreateQRScene(100, 1800)
+	if err != nil {
+		log.Print(err)
+	} else {
+		url := qr.ToURL() // 获取二维码的URL
+		log.Print(url)
+	}	
+}
+```
+
+示例，创建永久二维码
+
+```Go
+func CreateQRScene(wx *Weixin) {
+	// 二维码ID - 1001
+	qr, err := wx.CreateQRLimitScene(1001)
+	if err != nil {
+		log.Print(err)
+	} else {
+		url := qr.ToURL() // 获取二维码的URL
+		log.Print(url)
+	}	
+}
+```
+
 ## 参考连接
 
 * [Wiki](https://github.com/wizjin/weixin/wiki)
