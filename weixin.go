@@ -46,8 +46,10 @@ const (
 	MediaTypeVideo = "video"
 	MediaTypeThumb = "thumb"
 	// Weixin host URL
-	weixinHost    = "https://api.weixin.qq.com/cgi-bin"
-	weixinFileURL = "http://file.api.weixin.qq.com/cgi-bin/media"
+	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
+	weixinQRScene     = "https://api.weixin.qq.com/cgi-bin/qrcode"
+	weixinShowQRScene = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
+	weixinFileURL     = "http://file.api.weixin.qq.com/cgi-bin/media"
 	// Max retry count
 	retryMaxN = 3
 	// Reply format
@@ -59,6 +61,9 @@ const (
 	replyNews    = "<xml>%s<MsgType><![CDATA[news]]></MsgType><ArticleCount>%d</ArticleCount><Articles>%s</Articles></xml>"
 	replyHeader  = "<ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%d</CreateTime>"
 	replyArticle = "<item><Title><![CDATA[%s]]></Title> <Description><![CDATA[%s]]></Description><PicUrl><![CDATA[%s]]></PicUrl><Url><![CDATA[%s]]></Url></item>"
+	// QR scene request
+	requestQRScene      = "{\"expire_seconds\":%d,\"action_name\":\"QR_SCENE\",\"action_info\":{\"scene\":{\"scene_id\":%d}}}"
+	requestQRLimitScene = "{\"action_name\":\"QR_LIMIT_SCENE\",\"action_info\":{\"scene\":{\"scene_id\":%d}}}"
 )
 
 // Common message header
@@ -109,6 +114,12 @@ type Article struct {
 	Description string `json:"description"`
 	PicUrl      string `json:"picurl"`
 	Url         string `json:"url"`
+}
+
+// Use to store QR code
+type QRScene struct {
+	Ticket        string `json:"ticket"`
+	ExpireSeconds int    `json:"expire_seconds"`
 }
 
 // Use to output reply
@@ -163,6 +174,11 @@ type Weixin struct {
 	token     string
 	routes    []*route
 	tokenChan chan accessToken
+}
+
+// Convert qr scene to url
+func (qr *QRScene) ToURL() string {
+	return (weixinShowQRScene + "?ticket=" + qr.Ticket)
 }
 
 // Create a Weixin instance
@@ -309,6 +325,39 @@ func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
 	return downloadMedia(wx.tokenChan, mediaId, writer)
 }
 
+// Create QR scene
+func (wx *Weixin) CreateQRScene(sceneId int, expires int) (*QRScene, error) {
+	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRScene, expires, sceneId)))
+	if err != nil {
+		return nil, err
+	}
+	var qr QRScene
+	if err := json.Unmarshal(reply, &qr); err != nil {
+		return nil, err
+	}
+	return &qr, nil
+}
+
+// Create  QR limit scene
+func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
+	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitScene, sceneId)))
+	if err != nil {
+		return nil, err
+	}
+	var qr QRScene
+	if err := json.Unmarshal(reply, &qr); err != nil {
+		return nil, err
+	}
+	return &qr, nil
+}
+
+// Create handler func
+func (wx *Weixin) CreateHandlerFunc(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		wx.ServeHTTP(w, r)
+	}
+}
+
 // Process weixin request and send response.
 func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !checkSignature(wx.token, w, r) {
@@ -410,40 +459,44 @@ func createAccessToken(c chan accessToken, appid string, secret string) {
 	}
 }
 
-func postMessage(c chan accessToken, msg interface{}) error {
-	reqURL := weixinHost + "/message/custom/send?access_token="
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return err
-	}
+func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error) {
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
 		if time.Since(token.expires).Seconds() < 0 {
 			r, err := http.Post(reqURL+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer r.Body.Close()
 			reply, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			var result response
 			if err := json.Unmarshal(reply, &result); err != nil {
-				return err
+				return nil, err
 			} else {
 				switch result.ErrorCode {
 				case 0:
-					return nil
+					return reply, nil
 				case 42001: // access_token timeout and retry
 					continue
 				default:
-					return errors.New(fmt.Sprintf("WeiXin reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+					return nil, errors.New(fmt.Sprintf("WeiXin reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
 				}
 			}
 		}
 	}
-	return errors.New("WeiXin post message too many times")
+	return nil, errors.New("WeiXin post request too many times:" + reqURL)
+}
+
+func postMessage(c chan accessToken, msg interface{}) error {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	_, err = postRequest(weixinHost+"/message/custom/send?access_token=", c, data)
+	return err
 }
 
 func uploadMedia(c chan accessToken, mediaType string, filename string, reader io.Reader) (string, error) {
