@@ -126,6 +126,7 @@ type QRScene struct {
 type ResponseWriter interface {
 	// Get weixin
 	GetWeixin() *Weixin
+	GetUserData() interface{}
 	// Reply message
 	ReplyText(text string)
 	ReplyImage(mediaId string)
@@ -176,6 +177,7 @@ type Weixin struct {
 	token     string
 	routes    []*route
 	tokenChan chan accessToken
+	userData  interface{}
 }
 
 // Convert qr scene to url
@@ -191,6 +193,12 @@ func New(token string, appid string, secret string) *Weixin {
 		wx.tokenChan = make(chan accessToken)
 		go createAccessToken(wx.tokenChan, appid, secret)
 	}
+	return wx
+}
+
+func NewWithUserData(token string, appid string, secret string, userData interface{}) *Weixin {
+	wx := New(token, appid, secret)
+	wx.userData = userData
 	return wx
 }
 
@@ -595,6 +603,11 @@ func (w responseWriter) replyHeader() string {
 // Return weixin instance
 func (w responseWriter) GetWeixin() *Weixin {
 	return w.wx
+}
+
+// Return user data
+func (w responseWriter) GetUserData() interface{} {
+	return w.wx.userData
 }
 
 // Reply text message
