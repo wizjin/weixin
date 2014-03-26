@@ -148,7 +148,7 @@ func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
 func CreateQRScene(wx *weixin.Weixin) {
 	// 二维码ID - 1000
 	// 过期时间 - 1800秒
-	qr, err := wx.CreateQRScene(100, 1800)
+	qr, err := wx.CreateQRScene(1000, 1800)
 	if err != nil {
 		log.Print(err)
 	} else {
