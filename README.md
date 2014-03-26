@@ -145,7 +145,7 @@ func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
 示例，创建临时二维码
 
 ```Go
-func CreateQRScene(wx *Weixin) {
+func CreateQRScene(wx *weixin.Weixin) {
 	// 二维码ID - 1000
 	// 过期时间 - 1800秒
 	qr, err := wx.CreateQRScene(1000, 1800)
@@ -154,14 +154,14 @@ func CreateQRScene(wx *Weixin) {
 	} else {
 		url := qr.ToURL() // 获取二维码的URL
 		log.Print(url)
-	}	
+	}
 }
 ```
 
 示例，创建永久二维码
 
 ```Go
-func CreateQRScene(wx *Weixin) {
+func CreateQRScene(wx *weixin.Weixin) {
 	// 二维码ID - 1001
 	qr, err := wx.CreateQRLimitScene(1001)
 	if err != nil {
@@ -169,7 +169,53 @@ func CreateQRScene(wx *Weixin) {
 	} else {
 		url := qr.ToURL() // 获取二维码的URL
 		log.Print(url)
-	}	
+	}
+}
+```
+
+### 自定义菜单
+
+示例，创建自定义菜单
+
+```Go
+func CreateMenu(wx *weixin.Weixin) {
+	menu := &weixin.Menu{make([]weixin.MenuButton, 2)}
+	menu.Buttons[0].Name = "我的菜单"
+	menu.Buttons[0].Type = weixin.MenuButtonTypeUrl
+	menu.Buttons[0].Url = "https://mp.weixin.qq.com"
+	menu.Buttons[1].Name = "我的子菜单"
+	menu.Buttons[1].SubButtons = make([]weixin.MenuButton, 1)
+	menu.Buttons[1].SubButtons[0].Name = "测试"
+	menu.Buttons[1].SubButtons[0].Type = weixin.MenuButtonTypeKey
+	menu.Buttons[1].SubButtons[0].Key = "MyKey001"
+	err := wx.CreateMenu(menu)
+	if err != nil {
+		log.Print(err)
+	}
+}
+```
+
+示例，获取自定义菜单
+
+```Go
+func DeleteMenu(wx *weixin.Weixin) {
+	menu, err := wx.GetMenu()
+	if err != nil {
+		log.Print(err)
+	} else {
+		log.Print(menu)
+	}
+}
+```
+
+示例，删除自定义菜单
+
+```Go
+func DeleteMenu(wx *weixin.Weixin) {
+	err := wx.DeleteMenu()
+	if err != nil {
+		log.Print(err)
+	}
 }
 ```
 

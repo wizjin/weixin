@@ -45,6 +45,9 @@ const (
 	MediaTypeVoice = "voice"
 	MediaTypeVideo = "video"
 	MediaTypeThumb = "thumb"
+	// Button type
+	MenuButtonTypeKey = "click"
+	MenuButtonTypeUrl = "view"
 	// Weixin host URL
 	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
 	weixinQRScene     = "https://api.weixin.qq.com/cgi-bin/qrcode"
@@ -122,6 +125,19 @@ type QRScene struct {
 	ExpireSeconds int    `json:"expire_seconds"`
 }
 
+// Custom Menu
+type Menu struct {
+	Buttons []MenuButton `json:"button,omitempty"`
+}
+
+type MenuButton struct {
+	Name       string       `json:"name"`
+	Type       string       `json:"type,omitempty"`
+	Key        string       `json:"key,omitempty"`
+	Url        string       `json:"url,omitempty"`
+	SubButtons []MenuButton `json:"sub_button,omitempty"`
+}
+
 // Use to output reply
 type ResponseWriter interface {
 	// Get weixin
@@ -156,8 +172,8 @@ type responseWriter struct {
 }
 
 type response struct {
-	ErrorCode    int    `json:"errcode"`
-	ErrorMessage string `json:"errmsg"`
+	ErrorCode    int    `json:"errcode,omitempty"`
+	ErrorMessage string `json:"errmsg,omitempty"`
 }
 
 // Callback function
@@ -361,6 +377,38 @@ func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
 	return &qr, nil
 }
 
+// Custom menu
+func (wx *Weixin) CreateMenu(menu *Menu) error {
+	data, err := json.Marshal(menu)
+	if err != nil {
+		return err
+	} else {
+		_, err := postRequest(weixinHost+"/menu/create?access_token=", wx.tokenChan, data)
+		return err
+	}
+}
+
+func (wx *Weixin) GetMenu() (*Menu, error) {
+	reply, err := sendGetRequest(weixinHost+"/menu/get?access_token=", wx.tokenChan)
+	if err != nil {
+		return nil, err
+	} else {
+		var result struct {
+			MenuCtx *Menu `json:"menu"`
+		}
+		if err := json.Unmarshal(reply, &result); err != nil {
+			return nil, err
+		} else {
+			return result.MenuCtx, nil
+		}
+	}
+}
+
+func (wx *Weixin) DeleteMenu() error {
+	_, err := sendGetRequest(weixinHost+"/menu/delete?access_token=", wx.tokenChan)
+	return err
+}
+
 // Create handler func
 func (wx *Weixin) CreateHandlerFunc(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -469,6 +517,37 @@ func createAccessToken(c chan accessToken, appid string, secret string) {
 	}
 }
 
+func sendGetRequest(reqURL string, c chan accessToken) ([]byte, error) {
+	for i := 0; i < retryMaxN; i++ {
+		token := <-c
+		if time.Since(token.expires).Seconds() < 0 {
+			r, err := http.Get(reqURL + token.token)
+			if err != nil {
+				return nil, err
+			}
+			defer r.Body.Close()
+			reply, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return nil, err
+			}
+			var result response
+			if err := json.Unmarshal(reply, &result); err != nil {
+				return nil, err
+			} else {
+				switch result.ErrorCode {
+				case 0:
+					return reply, nil
+				case 42001: // access_token timeout and retry
+					continue
+				default:
+					return nil, errors.New(fmt.Sprintf("WeiXin send get request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+				}
+			}
+		}
+	}
+	return nil, errors.New("WeiXin post request too many times:" + reqURL)
+}
+
 func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error) {
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
@@ -492,7 +571,7 @@ func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error)
 				case 42001: // access_token timeout and retry
 					continue
 				default:
-					return nil, errors.New(fmt.Sprintf("WeiXin reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+					return nil, errors.New(fmt.Sprintf("WeiXin send post request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
 				}
 			}
 		}
