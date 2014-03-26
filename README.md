@@ -173,6 +173,39 @@ func CreateQRScene(wx *Weixin) {
 }
 ```
 
+### 自定义菜单
+
+示例，创建自定义菜单
+
+```Go
+func CreateMenu(wx *Weixin) {
+	var buttons := make([]MenuButton, 2)
+	buttons[0].Name = "我的菜单"
+	buttons[0].Type = weixin.MenuButtonTypeUrl
+	buttons[0].Url = "https://mp.weixin.qq.com"
+	buttons[1].Name = "我的子菜单"
+	buttons[1].SubButtons = make([]MenuButton, 1)
+	buttons[1].SubButtons[0].Name = "测试"
+	buttons[1].SubButtons[0].Type = weixin.MenuButtonTypeKey
+	buttons[1].SubButtons[0].Key = "MyKey001"
+	err := Weixin.CreateMenu(buttons)
+	if err != nil {
+		log.Print(err)
+	}	
+}
+```
+
+示例，删除自定义菜单
+
+```Go
+func DeleteMenu(wx *Weixin) {
+	err := Weixin.DeleteMenu()
+	if err != nil {
+		log.Print(err)
+	}	
+}
+```
+
 ## 参考连接
 
 * [Wiki](https://github.com/wizjin/weixin/wiki)
