@@ -46,7 +46,7 @@ const (
 	MediaTypeVideo = "video"
 	MediaTypeThumb = "thumb"
 	// Button type
-	MenuButtonTypeKey = "key"
+	MenuButtonTypeKey = "click"
 	MenuButtonTypeUrl = "view"
 	// Weixin host URL
 	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
@@ -126,6 +126,10 @@ type QRScene struct {
 }
 
 // Custom Menu
+type Menu struct {
+	Buttons []MenuButton `json:"button,omitempty"`
+}
+
 type MenuButton struct {
 	Name       string       `json:"name"`
 	Type       string       `json:"type,omitempty"`
@@ -167,8 +171,8 @@ type responseWriter struct {
 }
 
 type response struct {
-	ErrorCode    int    `json:"errcode"`
-	ErrorMessage string `json:"errmsg"`
+	ErrorCode    int    `json:"errcode,omitempty"`
+	ErrorMessage string `json:"errmsg,omitempty"`
 }
 
 // Callback function
@@ -366,13 +370,29 @@ func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
 }
 
 // Custom menu
-func (wx *Weixin) CreateMenu(buttons []MenuButton) error {
-	data, err := json.Marshal(buttons)
+func (wx *Weixin) CreateMenu(menu *Menu) error {
+	data, err := json.Marshal(menu)
 	if err != nil {
 		return err
 	} else {
 		_, err := postRequest(weixinHost+"/menu/create?access_token=", wx.tokenChan, data)
 		return err
+	}
+}
+
+func (wx *Weixin) GetMenu() (*Menu, error) {
+	reply, err := sendGetRequest(weixinHost+"/menu/get?access_token=", wx.tokenChan)
+	if err != nil {
+		return nil, err
+	} else {
+		var result struct {
+			MenuCtx *Menu `json:"menu"`
+		}
+		if err := json.Unmarshal(reply, &result); err != nil {
+			return nil, err
+		} else {
+			return result.MenuCtx, nil
+		}
 	}
 }
 
