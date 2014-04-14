@@ -441,6 +441,7 @@ func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			wx.routeRequest(w, &msg)
 		}
 	}
+	return
 }
 
 func (wx *Weixin) routeRequest(w http.ResponseWriter, r *Request) {
@@ -461,6 +462,7 @@ func (wx *Weixin) routeRequest(w http.ResponseWriter, r *Request) {
 		return
 	}
 	http.Error(w, "", http.StatusNotFound)
+	return
 }
 
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
