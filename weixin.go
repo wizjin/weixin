@@ -25,8 +25,11 @@ const (
 	msgEvent         = "event"
 	EventSubscribe   = "subscribe"
 	EventUnsubscribe = "unsubscribe"
-	EventScan        = "scan"
+	EventScan        = "SCAN"
+	EventView        = "VIEW"
 	EventClick       = "CLICK"
+	EventLocation    = "LOCATION"
+
 	// Message type
 	MsgTypeDefault          = ".*"
 	MsgTypeText             = "text"
@@ -39,7 +42,10 @@ const (
 	MsgTypeEventSubscribe   = msgEvent + "\\." + EventSubscribe
 	MsgTypeEventUnsubscribe = msgEvent + "\\." + EventUnsubscribe
 	MsgTypeEventScan        = msgEvent + "\\." + EventScan
+	MsgTypeEventView        = msgEvent + "\\." + EventView
 	MsgTypeEventClick       = msgEvent + "\\." + EventClick
+	MsgTypeEventLocation    = msgEvent + "\\." + EventLocation
+
 	// Media type
 	MediaTypeImage = "image"
 	MediaTypeVoice = "voice"
