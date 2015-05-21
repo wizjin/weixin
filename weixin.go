@@ -146,6 +146,7 @@ type ResponseWriter interface {
 	GetWeixin() *Weixin
 	GetUserData() interface{}
 	// Reply message
+	ReplyOK()
 	ReplyText(text string)
 	ReplyImage(mediaId string)
 	ReplyVoice(mediaId string)
@@ -692,6 +693,11 @@ func (w responseWriter) GetWeixin() *Weixin {
 // Return user data
 func (w responseWriter) GetUserData() interface{} {
 	return w.wx.userData
+}
+
+// Reply empty message
+func (w responseWriter) ReplyOK() {
+	w.writer.Write([]byte("success"))
 }
 
 // Reply text message
