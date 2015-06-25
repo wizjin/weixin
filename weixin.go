@@ -58,6 +58,7 @@ const (
 	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
 	weixinQRScene     = "https://api.weixin.qq.com/cgi-bin/qrcode"
 	weixinShowQRScene = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
+	weixinShortURL    = "https://api.weixin.qq.com/cgi-bin/shorturl"
 	weixinFileURL     = "http://file.api.weixin.qq.com/cgi-bin/media"
 	// Max retry count
 	retryMaxN = 3
@@ -73,8 +74,8 @@ const (
 	transferCustomerService = "<xml>" + replyHeader + "<MsgType><![CDATA[transfer_customer_service]]></MsgType></xml>"
 
 	// QR scene request
-	requestQRScene      = "{\"expire_seconds\":%d,\"action_name\":\"QR_SCENE\",\"action_info\":{\"scene\":{\"scene_id\":%d}}}"
-	requestQRLimitScene = "{\"action_name\":\"QR_LIMIT_SCENE\",\"action_info\":{\"scene\":{\"scene_id\":%d}}}"
+	requestQRScene      = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_id":%d}}}`
+	requestQRLimitScene = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_id":%d}}}`
 )
 
 // Common message header
@@ -150,7 +151,9 @@ type MenuButton struct {
 type ResponseWriter interface {
 	// Get weixin
 	GetWeixin() *Weixin
+	GetUserData() interface{}
 	// Reply message
+	ReplyOK()
 	ReplyText(text string)
 	ReplyImage(mediaId string)
 	ReplyVoice(mediaId string)
@@ -201,6 +204,7 @@ type Weixin struct {
 	token     string
 	routes    []*route
 	tokenChan chan accessToken
+	userData  interface{}
 }
 
 // Convert qr scene to url
@@ -216,6 +220,12 @@ func New(token string, appid string, secret string) *Weixin {
 		wx.tokenChan = make(chan accessToken)
 		go createAccessToken(wx.tokenChan, appid, secret)
 	}
+	return wx
+}
+
+func NewWithUserData(token string, appid string, secret string, userData interface{}) *Weixin {
+	wx := New(token, appid, secret)
+	wx.userData = userData
 	return wx
 }
 
@@ -378,6 +388,32 @@ func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
 	return &qr, nil
 }
 
+// Long url to short url
+func (wx *Weixin) ShortURL(url string) (string, error) {
+	var request struct {
+		Action  string `json:"action"`
+		LongUrl string `json:"long_url"`
+	}
+	request.Action = "long2short"
+	request.LongUrl = url
+	data, err := json.Marshal(request)
+	if err != nil {
+		return "", err
+	}
+	reply, err := postRequest(weixinShortURL+"?access_token=", wx.tokenChan, data)
+	if err != nil {
+		return "", err
+	}
+
+	var shortUrl struct {
+		Url string `json:"short_url"`
+	}
+	if err := json.Unmarshal(reply, &shortUrl); err != nil {
+		return "", err
+	}
+	return shortUrl.Url, nil
+}
+
 // Custom menu
 func (wx *Weixin) CreateMenu(menu *Menu) error {
 	data, err := json.Marshal(menu)
@@ -442,6 +478,7 @@ func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			wx.routeRequest(w, &msg)
 		}
 	}
+	return
 }
 
 func (wx *Weixin) routeRequest(w http.ResponseWriter, r *Request) {
@@ -683,6 +720,16 @@ func (w responseWriter) replyHeader() string {
 // Return weixin instance
 func (w responseWriter) GetWeixin() *Weixin {
 	return w.wx
+}
+
+// Return user data
+func (w responseWriter) GetUserData() interface{} {
+	return w.wx.userData
+}
+
+// Reply empty message
+func (w responseWriter) ReplyOK() {
+	w.writer.Write([]byte("success"))
 }
 
 // Reply text message
