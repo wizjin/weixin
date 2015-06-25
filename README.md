@@ -58,6 +58,7 @@ func main() {
 
 微信公众平台要求在收到消息后5秒内回复消息（Reply接口）
 如果时间操作很长，则可以使用Post接口发送消息
+如果只使用Post接口发送消息，则需要先调用ReplyOK来告知微信不用等待回复。
 
 ### 处理函数
 
@@ -71,36 +72,39 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 
 可以注册的处理函数类型有以下几种
 
-* `weixin.MsgTypeText`				接收文本消息	
-* `weixin.MsgTypeImage`				接收图片消息	
-* `weixin.MsgTypeVoice`				接收语音消息	
-* `weixin.MsgTypeVideo`				接收视频消息	
-* `weixin.MsgTypeLocation`			接收地理位置消息
-* `weixin.MsgTypeLink`				接收链接消息
-* `weixin.MsgTypeEventSubscribe`	接收关注事件
-* `weixin.MsgTypeEventUnsubscribe`	接收取消关注事件
-* `weixin.MsgTypeEventScan`			接收扫描二维码事件
-* `weixin.MsgTypeEventClick`		接收自定义菜单事件
+- `weixin.MsgTypeText`				接收文本消息
+- `weixin.MsgTypeImage`				接收图片消息
+- `weixin.MsgTypeVoice`				接收语音消息
+- `weixin.MsgTypeVideo`				接收视频消息
+- `weixin.MsgTypeLocation`			接收地理位置消息
+- `weixin.MsgTypeLink`				接收链接消息
+- `weixin.MsgTypeEventSubscribe`	接收关注事件
+- `weixin.MsgTypeEventUnsubscribe`	接收取消关注事件
+- `weixin.MsgTypeEventScan`			接收扫描二维码事件
+- `weixin.MsgTypeEventView`			接收点击菜单跳转链接时的事件
+- `weixin.MsgTypeEventClick`		接收自定义菜单事件
+- `weixin.MsgTypeEventLocation`		接收上报地理位置事件
 
 ### 发送被动响应消息
 
 需要发送被动响应消息，可通过`weixin.ResponseWriter`的下列方法完成
 
-* `ReplyText(text)`							回复文本消息
-* `ReplyImage(mediaId)`						回复图片消息
-* `ReplyVoice(mediaId)`						回复语音消息
-* `ReplyVideo(mediaId, title, description)`	回复视频消息
-* `ReplyMusic(music)`						回复音乐消息
-* `ReplyNews(articles)`						回复图文消息
+- `ReplyOK()`								无同步消息回复
+- `ReplyText(text)`							回复文本消息
+- `ReplyImage(mediaId)`						回复图片消息
+- `ReplyVoice(mediaId)`						回复语音消息
+- `ReplyVideo(mediaId, title, description)`	回复视频消息
+- `ReplyMusic(music)`						回复音乐消息
+- `ReplyNews(articles)`						回复图文消息
 
 ### 发送客服消息
 
-* `PostText(text)`							发送文本消息
-* `PostImage(mediaId)`						发送图片消息
-* `PostVoice(mediaId)`						发送语音消息
-* `PostVideo(mediaId, title, description)`	发送视频消息
-* `PostMusic(music)`						发送音乐消息
-* `PostNews(articles)`						发送图文消息
+- `PostText(text)`							发送文本消息
+- `PostImage(mediaId)`						发送图片消息
+- `PostVoice(mediaId)`						发送语音消息
+- `PostVideo(mediaId, title, description)`	发送视频消息
+- `PostMusic(music)`						发送音乐消息
+- `PostNews(articles)`						发送图文消息
 
 ### 上传/下载多媒体文件
 
@@ -173,6 +177,20 @@ func CreateQRScene(wx *weixin.Weixin) {
 }
 ```
 
+### 长链接转短链接接口
+
+```Go
+func ShortURL(wx *weixin.Weixin) {
+	// 长链接转短链接
+	url, err := wx.ShortURL("http://mp.weixin.qq.com/wiki/10/165c9b15eddcfbd8699ac12b0bd89ae6.html")
+	if err != nil {
+		log.Print(err)
+	} else {
+		log.Print(url)
+	}
+}
+```
+
 ### 自定义菜单
 
 示例，创建自定义菜单
@@ -232,10 +250,14 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.5.0 - upcoming
+### Version 0.5.1 - upcoming
 
 - 用户管理
+
+### Version 0.5.0 - 2015/06/25
+
 - 自定义菜单
+- 长链接转短链接
 
 ### Version 0.4.1 - 2014/09/07
 
