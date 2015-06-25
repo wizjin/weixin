@@ -36,6 +36,7 @@ const (
 	MsgTypeImage            = "image"
 	MsgTypeVoice            = "voice"
 	MsgTypeVideo            = "video"
+	MsgTypeShortVideo       = "shortvideo"
 	MsgTypeLocation         = "location"
 	MsgTypeLink             = "link"
 	MsgTypeEvent            = msgEvent + ".*"
