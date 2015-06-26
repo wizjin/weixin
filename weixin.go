@@ -36,6 +36,7 @@ const (
 	MsgTypeImage            = "image"
 	MsgTypeVoice            = "voice"
 	MsgTypeVideo            = "video"
+	MsgTypeShortVideo       = "shortvideo"
 	MsgTypeLocation         = "location"
 	MsgTypeLink             = "link"
 	MsgTypeEvent            = msgEvent + ".*"
@@ -52,8 +53,16 @@ const (
 	MediaTypeVideo = "video"
 	MediaTypeThumb = "thumb"
 	// Button type
-	MenuButtonTypeKey = "click"
-	MenuButtonTypeUrl = "view"
+	MenuButtonTypeKey             = "click"
+	MenuButtonTypeUrl             = "view"
+	MenuButtonTypeScancodePush    = "scancode_push"
+	MenuButtonTypeScancodeWaitmsg = "scancode_waitmsg"
+	MenuButtonTypePicSysphoto     = "pic_sysphoto"
+	MenuButtonTypePicPhotoOrAlbum = "pic_photo_or_album"
+	MenuButtonTypePicWeixin       = "pic_weixin"
+	MenuButtonTypeLocationSelect  = "location_select"
+	MenuButtonTypeMediaId         = "media_id"
+	MenuButtonTypeViewLimited     = "view_limited"
 	// Weixin host URL
 	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
 	weixinQRScene     = "https://api.weixin.qq.com/cgi-bin/qrcode"
@@ -144,6 +153,7 @@ type MenuButton struct {
 	Type       string       `json:"type,omitempty"`
 	Key        string       `json:"key,omitempty"`
 	Url        string       `json:"url,omitempty"`
+	MediaId    string       `json:"media_id,omitempty"`
 	SubButtons []MenuButton `json:"sub_button,omitempty"`
 }
 
@@ -362,6 +372,21 @@ func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
 	return downloadMedia(wx.tokenChan, mediaId, writer)
 }
 
+// Get ip list
+func (wx *Weixin) GetIpList() ([]string, error) {
+	reply, err := sendGetRequest(weixinHost+"/getcallbackip?access_token=", wx.tokenChan)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		IpList []string `json:"ip_list"`
+	}
+	if err := json.Unmarshal(reply, &result); err != nil {
+		return nil, err
+	}
+	return result.IpList, nil
+}
+
 // Create QR scene
 func (wx *Weixin) CreateQRScene(sceneId int, expires int) (*QRScene, error) {
 	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRScene, expires, sceneId)))
@@ -396,7 +421,7 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 	}
 	request.Action = "long2short"
 	request.LongUrl = url
-	data, err := json.Marshal(request)
+	data, err := marshal(request)
 	if err != nil {
 		return "", err
 	}
@@ -404,7 +429,6 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	var shortUrl struct {
 		Url string `json:"short_url"`
 	}
@@ -416,29 +440,26 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 
 // Custom menu
 func (wx *Weixin) CreateMenu(menu *Menu) error {
-	data, err := json.Marshal(menu)
+	data, err := marshal(menu)
 	if err != nil {
 		return err
-	} else {
-		_, err := postRequest(weixinHost+"/menu/create?access_token=", wx.tokenChan, data)
-		return err
 	}
+	_, err = postRequest(weixinHost+"/menu/create?access_token=", wx.tokenChan, data)
+	return err
 }
 
 func (wx *Weixin) GetMenu() (*Menu, error) {
 	reply, err := sendGetRequest(weixinHost+"/menu/get?access_token=", wx.tokenChan)
 	if err != nil {
 		return nil, err
-	} else {
-		var result struct {
-			MenuCtx *Menu `json:"menu"`
-		}
-		if err := json.Unmarshal(reply, &result); err != nil {
-			return nil, err
-		} else {
-			return result.MenuCtx, nil
-		}
 	}
+	var result struct {
+		MenuCtx *Menu `json:"menu"`
+	}
+	if err := json.Unmarshal(reply, &result); err != nil {
+		return nil, err
+	}
+	return result.MenuCtx, nil
 }
 
 func (wx *Weixin) DeleteMenu() error {
@@ -500,6 +521,16 @@ func (wx *Weixin) routeRequest(w http.ResponseWriter, r *Request) {
 	}
 	http.Error(w, "", http.StatusNotFound)
 	return
+}
+
+func marshal(v interface{}) ([]byte, error) {
+	data, err := json.Marshal(v)
+	if err == nil {
+		data = bytes.Replace(data, []byte("\\u003c"), []byte("<"), -1)
+		data = bytes.Replace(data, []byte("\\u003e"), []byte(">"), -1)
+		data = bytes.Replace(data, []byte("\\u0026"), []byte("&"), -1)
+	}
+	return data, err
 }
 
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
@@ -572,15 +603,14 @@ func sendGetRequest(reqURL string, c chan accessToken) ([]byte, error) {
 			var result response
 			if err := json.Unmarshal(reply, &result); err != nil {
 				return nil, err
-			} else {
-				switch result.ErrorCode {
-				case 0:
-					return reply, nil
-				case 42001: // access_token timeout and retry
-					continue
-				default:
-					return nil, errors.New(fmt.Sprintf("WeiXin send get request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
-				}
+			}
+			switch result.ErrorCode {
+			case 0:
+				return reply, nil
+			case 42001: // access_token timeout and retry
+				continue
+			default:
+				return nil, errors.New(fmt.Sprintf("WeiXin send get request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
 			}
 		}
 	}
@@ -603,15 +633,14 @@ func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error)
 			var result response
 			if err := json.Unmarshal(reply, &result); err != nil {
 				return nil, err
-			} else {
-				switch result.ErrorCode {
-				case 0:
-					return reply, nil
-				case 42001: // access_token timeout and retry
-					continue
-				default:
-					return nil, errors.New(fmt.Sprintf("WeiXin send post request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
-				}
+			}
+			switch result.ErrorCode {
+			case 0:
+				return reply, nil
+			case 42001: // access_token timeout and retry
+				continue
+			default:
+				return nil, errors.New(fmt.Sprintf("WeiXin send post request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
 			}
 		}
 	}
@@ -619,7 +648,7 @@ func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error)
 }
 
 func postMessage(c chan accessToken, msg interface{}) error {
-	data, err := json.Marshal(msg)
+	data, err := marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -661,15 +690,14 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 			err = json.Unmarshal(reply, &result)
 			if err != nil {
 				return "", err
-			} else {
-				switch result.ErrorCode {
-				case 0:
-					return result.MediaId, nil
-				case 42001: // access_token timeout and retry
-					continue
-				default:
-					return "", errors.New(fmt.Sprintf("WeiXin upload[%d]: %s", result.ErrorCode, result.ErrorMessage))
-				}
+			}
+			switch result.ErrorCode {
+			case 0:
+				return result.MediaId, nil
+			case 42001: // access_token timeout and retry
+				continue
+			default:
+				return "", errors.New(fmt.Sprintf("WeiXin upload[%d]: %s", result.ErrorCode, result.ErrorMessage))
 			}
 		}
 	}
@@ -689,24 +717,22 @@ func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
 			if r.Header.Get("Content-Type") != "text/plain" {
 				_, err := io.Copy(writer, r.Body)
 				return err
-			} else {
-				reply, err := ioutil.ReadAll(r.Body)
-				if err != nil {
-					return err
-				}
-				var result response
-				if err := json.Unmarshal(reply, &result); err != nil {
-					return err
-				} else {
-					switch result.ErrorCode {
-					case 0:
-						return nil
-					case 42001: // access_token timeout and retry
-						continue
-					default:
-						return errors.New(fmt.Sprintf("WeiXin download[%d]: %s", result.ErrorCode, result.ErrorMessage))
-					}
-				}
+			}
+			reply, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return err
+			}
+			var result response
+			if err := json.Unmarshal(reply, &result); err != nil {
+				return err
+			}
+			switch result.ErrorCode {
+			case 0:
+				return nil
+			case 42001: // access_token timeout and retry
+				continue
+			default:
+				return errors.New(fmt.Sprintf("WeiXin download[%d]: %s", result.ErrorCode, result.ErrorMessage))
 			}
 		}
 	}

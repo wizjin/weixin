@@ -76,6 +76,7 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 - `weixin.MsgTypeImage`				接收图片消息
 - `weixin.MsgTypeVoice`				接收语音消息
 - `weixin.MsgTypeVideo`				接收视频消息
+- `weixin.MsgTypeShortVideo`		接收小视频消息
 - `weixin.MsgTypeLocation`			接收地理位置消息
 - `weixin.MsgTypeLink`				接收链接消息
 - `weixin.MsgTypeEventSubscribe`	接收关注事件
@@ -144,6 +145,19 @@ func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
 }
 ```
 
+### 获取微信服务器IP地址
+
+```Go
+func GetIpList(wx *weixin.Weixin) {
+	ips, err := wx.GetIpList()
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(ips)	// Ip地址列表
+	}
+}
+```
+
 ### 创建/换取二维码
 
 示例，创建临时二维码
@@ -154,10 +168,10 @@ func CreateQRScene(wx *weixin.Weixin) {
 	// 过期时间 - 1800秒
 	qr, err := wx.CreateQRScene(1000, 1800)
 	if err != nil {
-		log.Print(err)
+		fmt.Println(err)
 	} else {
 		url := qr.ToURL() // 获取二维码的URL
-		log.Print(url)
+		fmt.Println(url)
 	}
 }
 ```
@@ -169,10 +183,10 @@ func CreateQRScene(wx *weixin.Weixin) {
 	// 二维码ID - 1001
 	qr, err := wx.CreateQRLimitScene(1001)
 	if err != nil {
-		log.Print(err)
+		fmt.Println(err)
 	} else {
 		url := qr.ToURL() // 获取二维码的URL
-		log.Print(url)
+		fmt.Println(url)
 	}
 }
 ```
@@ -184,9 +198,9 @@ func ShortURL(wx *weixin.Weixin) {
 	// 长链接转短链接
 	url, err := wx.ShortURL("http://mp.weixin.qq.com/wiki/10/165c9b15eddcfbd8699ac12b0bd89ae6.html")
 	if err != nil {
-		log.Print(err)
+		fmt.Println(err)
 	} else {
-		log.Print(url)
+		fmt.Println(url)
 	}
 }
 ```
@@ -208,10 +222,23 @@ func CreateMenu(wx *weixin.Weixin) {
 	menu.Buttons[1].SubButtons[0].Key = "MyKey001"
 	err := wx.CreateMenu(menu)
 	if err != nil {
-		log.Print(err)
+		fmt.Println(err)
 	}
 }
 ```
+
+自定义菜单的类型有如下几种
+
+- `weixin.MenuButtonTypeKey`				点击推事件
+- `weixin.MenuButtonTypeUrl`				跳转URL
+- `weixin.MenuButtonTypeScancodePush`		扫码推事件
+- `weixin.MenuButtonTypeScancodeWaitmsg`	扫码推事件且弹出“消息接收中”提示框
+- `weixin.MenuButtonTypePicSysphoto`		弹出系统拍照发图
+- `weixin.MenuButtonTypePicPhotoOrAlbum`	弹出拍照或者相册发图
+- `weixin.MenuButtonTypePicWeixin`			弹出微信相册发图器
+- `weixin.MenuButtonTypeLocationSelect`		弹出地理位置选择器
+- `weixin.MenuButtonTypeMediaId`			下发消息（除文本消息）
+- `weixin.MenuButtonTypeViewLimited`		跳转图文消息URL
 
 示例，获取自定义菜单
 
@@ -219,9 +246,9 @@ func CreateMenu(wx *weixin.Weixin) {
 func DeleteMenu(wx *weixin.Weixin) {
 	menu, err := wx.GetMenu()
 	if err != nil {
-		log.Print(err)
+		fmt.Println(err)
 	} else {
-		log.Print(menu)
+		fmt.Println(menu)
 	}
 }
 ```
@@ -232,7 +259,7 @@ func DeleteMenu(wx *weixin.Weixin) {
 func DeleteMenu(wx *weixin.Weixin) {
 	err := wx.DeleteMenu()
 	if err != nil {
-		log.Print(err)
+		fmt.Println(err)
 	}
 }
 ```
@@ -250,9 +277,14 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.5.1 - upcoming
+### Version 0.5.2 - upcoming
 
 - 用户管理
+
+### Version 0.5.1 - 2015/06/26
+
+- 获取微信服务器IP地址
+- 接收小视频消息
 
 ### Version 0.5.0 - 2015/06/25
 
