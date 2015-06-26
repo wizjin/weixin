@@ -277,9 +277,12 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.5.1 - upcoming
+### Version 0.5.2 - upcoming
 
 - 用户管理
+
+### Version 0.5.1 - 2015/06/26
+
 - 获取微信服务器IP地址
 - 接收小视频消息
 
