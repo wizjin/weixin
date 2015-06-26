@@ -421,7 +421,7 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 	}
 	request.Action = "long2short"
 	request.LongUrl = url
-	data, err := json.Marshal(request)
+	data, err := marshal(request)
 	if err != nil {
 		return "", err
 	}
@@ -440,7 +440,7 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 
 // Custom menu
 func (wx *Weixin) CreateMenu(menu *Menu) error {
-	data, err := json.Marshal(menu)
+	data, err := marshal(menu)
 	if err != nil {
 		return err
 	}
@@ -520,6 +520,16 @@ func (wx *Weixin) routeRequest(w http.ResponseWriter, r *Request) {
 		return
 	}
 	http.Error(w, "", http.StatusNotFound)
+}
+
+func marshal(v interface{}) ([]byte, error) {
+	data, err := json.Marshal(v)
+	if err == nil {
+		data = bytes.Replace(data, []byte("\\u003c"), []byte("<"), -1)
+		data = bytes.Replace(data, []byte("\\u003e"), []byte(">"), -1)
+		data = bytes.Replace(data, []byte("\\u0026"), []byte("&"), -1)
+	}
+	return data, err
 }
 
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
@@ -637,7 +647,7 @@ func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error)
 }
 
 func postMessage(c chan accessToken, msg interface{}) error {
-	data, err := json.Marshal(msg)
+	data, err := marshal(msg)
 	if err != nil {
 		return err
 	}
