@@ -227,6 +227,19 @@ func CreateMenu(wx *weixin.Weixin) {
 }
 ```
 
+自定义菜单的类型有如下几种
+
+- `weixin.MenuButtonTypeKey`				点击推事件
+- `weixin.MenuButtonTypeUrl`				跳转URL
+- `weixin.MenuButtonTypeScancodePush`		扫码推事件
+- `weixin.MenuButtonTypeScancodeWaitmsg`	扫码推事件且弹出“消息接收中”提示框
+- `weixin.MenuButtonTypePicSysphoto`		弹出系统拍照发图
+- `weixin.MenuButtonTypePicPhotoOrAlbum`	弹出拍照或者相册发图
+- `weixin.MenuButtonTypePicWeixin`			弹出微信相册发图器
+- `weixin.MenuButtonTypeLocationSelect`		弹出地理位置选择器
+- `weixin.MenuButtonTypeMediaId`			下发消息（除文本消息）
+- `weixin.MenuButtonTypeViewLimited`		跳转图文消息URL
+
 示例，获取自定义菜单
 
 ```Go

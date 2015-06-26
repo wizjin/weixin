@@ -53,8 +53,16 @@ const (
 	MediaTypeVideo = "video"
 	MediaTypeThumb = "thumb"
 	// Button type
-	MenuButtonTypeKey = "click"
-	MenuButtonTypeUrl = "view"
+	MenuButtonTypeKey             = "click"
+	MenuButtonTypeUrl             = "view"
+	MenuButtonTypeScancodePush    = "scancode_push"
+	MenuButtonTypeScancodeWaitmsg = "scancode_waitmsg"
+	MenuButtonTypePicSysphoto     = "pic_sysphoto"
+	MenuButtonTypePicPhotoOrAlbum = "pic_photo_or_album"
+	MenuButtonTypePicWeixin       = "pic_weixin"
+	MenuButtonTypeLocationSelect  = "location_select"
+	MenuButtonTypeMediaId         = "media_id"
+	MenuButtonTypeViewLimited     = "view_limited"
 	// Weixin host URL
 	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
 	weixinQRScene     = "https://api.weixin.qq.com/cgi-bin/qrcode"
@@ -145,6 +153,7 @@ type MenuButton struct {
 	Type       string       `json:"type,omitempty"`
 	Key        string       `json:"key,omitempty"`
 	Url        string       `json:"url,omitempty"`
+	MediaId    string       `json:"media_id,omitempty"`
 	SubButtons []MenuButton `json:"sub_button,omitempty"`
 }
 
