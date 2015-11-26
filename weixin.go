@@ -13,6 +13,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -63,12 +64,17 @@ const (
 	MenuButtonTypeLocationSelect  = "location_select"
 	MenuButtonTypeMediaId         = "media_id"
 	MenuButtonTypeViewLimited     = "view_limited"
+	// Redirect Scope
+	RedirectURLScopeBasic    = "snsapi_base"
+	RedirectURLScopeUserInfo = "snsapi_userinfo"
 	// Weixin host URL
-	weixinHost        = "https://api.weixin.qq.com/cgi-bin"
-	weixinQRScene     = "https://api.weixin.qq.com/cgi-bin/qrcode"
-	weixinShowQRScene = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
-	weixinShortURL    = "https://api.weixin.qq.com/cgi-bin/shorturl"
-	weixinFileURL     = "http://file.api.weixin.qq.com/cgi-bin/media"
+	weixinHost         = "https://api.weixin.qq.com/cgi-bin"
+	weixinQRScene      = "https://api.weixin.qq.com/cgi-bin/qrcode"
+	weixinShowQRScene  = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
+	weixinShortURL     = "https://api.weixin.qq.com/cgi-bin/shorturl"
+	weixinFileURL      = "http://file.api.weixin.qq.com/cgi-bin/media"
+	weixinRedirectURL  = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect"
+	weixinGetOpenIDURL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
 	// Max retry count
 	retryMaxN = 3
 	// Reply format
@@ -215,6 +221,8 @@ type Weixin struct {
 	routes    []*route
 	tokenChan chan accessToken
 	userData  interface{}
+	appId     string
+	appSecret string
 }
 
 // Convert qr scene to url
@@ -226,6 +234,8 @@ func (qr *QRScene) ToURL() string {
 func New(token string, appid string, secret string) *Weixin {
 	wx := &Weixin{}
 	wx.token = token
+	wx.appId = appid
+	wx.appSecret = secret
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
 		go createAccessToken(wx.tokenChan, appid, secret)
@@ -465,6 +475,31 @@ func (wx *Weixin) GetMenu() (*Menu, error) {
 func (wx *Weixin) DeleteMenu() error {
 	_, err := sendGetRequest(weixinHost+"/menu/delete?access_token=", wx.tokenChan)
 	return err
+}
+
+// Create redirect url
+func (wx *Weixin) CreateRedirectURL(urlStr string, scope string, state string) string {
+	return fmt.Sprintf(weixinRedirectURL, wx.appId, url.QueryEscape(urlStr), scope, state)
+}
+
+// Get open id
+func (wx *Weixin) GetOpenId(code string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf(weixinGetOpenIDURL, wx.appId, wx.appSecret, code))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var res struct {
+		OpenId string `json:"openid"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return "", err
+	}
+	return res.OpenId, nil
 }
 
 // Create handler func
