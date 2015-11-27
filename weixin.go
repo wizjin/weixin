@@ -68,13 +68,13 @@ const (
 	RedirectURLScopeBasic    = "snsapi_base"
 	RedirectURLScopeUserInfo = "snsapi_userinfo"
 	// Weixin host URL
-	weixinHost         = "https://api.weixin.qq.com/cgi-bin"
-	weixinQRScene      = "https://api.weixin.qq.com/cgi-bin/qrcode"
-	weixinShowQRScene  = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
-	weixinShortURL     = "https://api.weixin.qq.com/cgi-bin/shorturl"
-	weixinFileURL      = "http://file.api.weixin.qq.com/cgi-bin/media"
-	weixinRedirectURL  = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect"
-	weixinGetOpenIDURL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
+	weixinHost               = "https://api.weixin.qq.com/cgi-bin"
+	weixinQRScene            = "https://api.weixin.qq.com/cgi-bin/qrcode"
+	weixinShowQRScene        = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
+	weixinShortURL           = "https://api.weixin.qq.com/cgi-bin/shorturl"
+	weixinFileURL            = "http://file.api.weixin.qq.com/cgi-bin/media"
+	weixinRedirectURL        = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect"
+	weixinUserAccessTokenURL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
 	// Max retry count
 	retryMaxN = 3
 	// Reply format
@@ -161,6 +161,15 @@ type MenuButton struct {
 	Url        string       `json:"url,omitempty"`
 	MediaId    string       `json:"media_id,omitempty"`
 	SubButtons []MenuButton `json:"sub_button,omitempty"`
+}
+
+type UserAccessToken struct {
+	AccessToken   string `json:"access_token"`
+	RefreshToken  string `json:"refresh_token"`
+	ExpireSeconds int    `json:"expires_in"`
+	OpenId        string `json:"openid"`
+	Scope         string `json:"scope"`
+	UnionId       string `json:"unionid,omitempty"`
 }
 
 // Use to output reply
@@ -483,23 +492,21 @@ func (wx *Weixin) CreateRedirectURL(urlStr string, scope string, state string) s
 }
 
 // Get open id
-func (wx *Weixin) GetOpenId(code string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf(weixinGetOpenIDURL, wx.appId, wx.appSecret, code))
+func (wx *Weixin) GetUserAccessToken(code string) (*UserAccessToken, error) {
+	resp, err := http.Get(fmt.Sprintf(weixinUserAccessTokenURL, wx.appId, wx.appSecret, code))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	var res struct {
-		OpenId string `json:"openid"`
-	}
+	var res UserAccessToken
 	if err := json.Unmarshal(body, &res); err != nil {
-		return "", err
+		return nil, err
 	}
-	return res.OpenId, nil
+	return &res, nil
 }
 
 // Create handler func
