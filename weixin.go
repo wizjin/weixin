@@ -708,6 +708,7 @@ func createAccessToken(c chan accessToken, appid string, secret string) {
 
 func createJsApiTicket(cin chan accessToken, c chan jsApiTicket) {
 	ticket := jsApiTicket{"", time.Now()}
+	c <- ticket
 	for {
 		if time.Since(ticket.expires).Seconds() >= 0 {
 			t, err := getJsApiTicket(cin)
