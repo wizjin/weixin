@@ -72,6 +72,7 @@ const (
 	weixinQRScene            = "https://api.weixin.qq.com/cgi-bin/qrcode"
 	weixinShowQRScene        = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
 	weixinShortURL           = "https://api.weixin.qq.com/cgi-bin/shorturl"
+	weixinUserInfo           = "https://api.weixin.qq.com/cgi-bin/user/info"
 	weixinFileURL            = "http://file.api.weixin.qq.com/cgi-bin/media"
 	weixinRedirectURL        = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect"
 	weixinUserAccessTokenURL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
@@ -170,6 +171,22 @@ type UserAccessToken struct {
 	OpenId        string `json:"openid"`
 	Scope         string `json:"scope"`
 	UnionId       string `json:"unionid,omitempty"`
+}
+
+type UserInfo struct {
+	Subscribe     int    `json:"subscribe,omitempty"`
+	Language      string `json:"language,omitempty"`
+	OpenId        string `json:"openid,omitempty"`
+	UnionId       string `json:"unionid,omitempty"`
+	Nickname      string `json:"nickname,omitempty"`
+	Sex           int    `json:"sex,omitempty"`
+	City          string `json:"city,omitempty"`
+	Country       string `json:"country,omitempty"`
+	Province      string `json:"province,omitempty"`
+	HeadImageUrl  string `json:"headimgurl,omitempty"`
+	SubscribeTime int64  `json:"subscribe_time,omitempty"`
+	Remark        string `json:"remark,omitempty"`
+	GroupId       int    `json:"groupid,omitempty"`
 }
 
 // Use to output reply
@@ -507,6 +524,19 @@ func (wx *Weixin) GetUserAccessToken(code string) (*UserAccessToken, error) {
 		return nil, err
 	}
 	return &res, nil
+}
+
+// Get user info
+func (wx *Weixin) GetUserInfo(openid string) (*UserInfo, error) {
+	reply, err := sendGetRequest(fmt.Sprintf("%s?openid=%s&lang=zh_CN&access_token=", weixinUserInfo, openid), wx.tokenChan)
+	if err != nil {
+		return nil, err
+	}
+	var result UserInfo
+	if err := json.Unmarshal(reply, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // Create handler func
