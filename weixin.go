@@ -76,6 +76,7 @@ const (
 	weixinFileURL            = "http://file.api.weixin.qq.com/cgi-bin/media"
 	weixinRedirectURL        = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect"
 	weixinUserAccessTokenURL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
+	weixinJsApiTicketURL     = "https://api.weixin.qq.com/cgi-bin/ticket/getticket"
 	// Max retry count
 	retryMaxN = 3
 	// Reply format
@@ -242,13 +243,19 @@ type accessToken struct {
 	expires time.Time
 }
 
+type jsApiTicket struct {
+	ticket  string
+	expires time.Time
+}
+
 type Weixin struct {
-	token     string
-	routes    []*route
-	tokenChan chan accessToken
-	userData  interface{}
-	appId     string
-	appSecret string
+	token      string
+	routes     []*route
+	tokenChan  chan accessToken
+	ticketChan chan jsApiTicket
+	userData   interface{}
+	appId      string
+	appSecret  string
 }
 
 // Convert qr scene to url
@@ -265,6 +272,7 @@ func New(token string, appid string, secret string) *Weixin {
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
 		go createAccessToken(wx.tokenChan, appid, secret)
+		go createJsApiTicket(wx.tokenChan, wx.ticketChan)
 	}
 	return wx
 }
@@ -539,6 +547,27 @@ func (wx *Weixin) GetUserInfo(openid string) (*UserInfo, error) {
 	return &result, nil
 }
 
+func (wx *Weixin) GetJsApiTicket() (string, error) {
+	for i := 0; i < retryMaxN; i++ {
+		ticket := <-wx.ticketChan
+		if time.Since(ticket.expires).Seconds() < 0 {
+			return ticket.ticket, nil
+		}
+	}
+	return "", errors.New("Get JsApi Ticket Timeout")
+}
+
+func (wx *Weixin) JsSignature(url string, timestamp int64, noncestr string) (string, error) {
+	ticket, err := wx.GetJsApiTicket()
+	if err != nil {
+		return "", err
+	}
+	h := sha1.New()
+	h.Write([]byte(fmt.Sprintf("jsapi_ticket=%s&noncestr=%s&timestamp=%d&url=%s",
+		ticket, noncestr, timestamp, url)))
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
 // Create handler func
 func (wx *Weixin) CreateHandlerFunc(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -645,6 +674,25 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 	return "", 0
 }
 
+func getJsApiTicket(c chan accessToken) (*jsApiTicket, error) {
+	reply, err := sendGetRequest(weixinJsApiTicketURL+"?type=jsapi&access_token=", c)
+	if err != nil {
+		return nil, err
+	}
+	var res struct {
+		Ticket    string `json:"ticket"`
+		ExpiresIn int64  `json:"expires_in"`
+	}
+	if err := json.Unmarshal(reply, &res); err != nil {
+		return nil, err
+	}
+	var ticket jsApiTicket
+	ticket.ticket = res.Ticket
+	ticket.expires = time.Now().Add(time.Duration(res.ExpiresIn * 1000 * 1000 * 1000))
+	return &ticket, nil
+
+}
+
 func createAccessToken(c chan accessToken, appid string, secret string) {
 	token := accessToken{"", time.Now()}
 	c <- token
@@ -655,6 +703,19 @@ func createAccessToken(c chan accessToken, appid string, secret string) {
 			token.expires = time.Now().Add(expires)
 		}
 		c <- token
+	}
+}
+
+func createJsApiTicket(cin chan accessToken, c chan jsApiTicket) {
+	ticket := jsApiTicket{"", time.Now()}
+	for {
+		if time.Since(ticket.expires).Seconds() >= 0 {
+			t, err := getJsApiTicket(cin)
+			if err == nil {
+				ticket = *t
+			}
+		}
+		c <- ticket
 	}
 }
 
