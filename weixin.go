@@ -272,6 +272,7 @@ func New(token string, appid string, secret string) *Weixin {
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
 		go createAccessToken(wx.tokenChan, appid, secret)
+		wx.ticketChan = make(chan jsApiTicket)
 		go createJsApiTicket(wx.tokenChan, wx.ticketChan)
 	}
 	return wx
