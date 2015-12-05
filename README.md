@@ -264,6 +264,73 @@ func DeleteMenu(wx *weixin.Weixin) {
 }
 ```
 
+### JSSDK签名
+
+示例，生成JSSDK签名
+```Go
+func SignJSSDK(wx *weixin.Weixin, url string) {
+	timestamp := time.Now().Unix()
+	noncestr := fmt.Sprintf("%d", c.randreader.Int())
+	sign, err := wx.JsSignature(url, timestamp, noncestr)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(sign)
+	}
+}
+```
+
+### 重定向URL生成
+
+示例，生成重定向URL
+```Go
+func CreateRedirect(wx *weixin.Weixin, url string) {
+	redirect := wx.CreateRedirectURL(url, weixin.RedirectURLScopeBasic, "")
+}
+```
+
+URL的类型有如下几种:
+
+- `RedirectURLScopeBasic`					基本授权，仅用来获取OpenId或UnionId
+- `RedirectURLScopeUserInfo`				高级授权，可以用于获取用户基本信息，需要用户同意
+
+### 用户OpenId和UnionId获取
+
+示例，获取用户OpenId和UnionId
+```Go
+func GetUserId(wx *weixin.Weixin, code string) {
+	user, err := wx.GetUserAccessToken(code)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(user.OpenId)
+		fmt.Println(user.UnionId)
+	}
+}
+```
+
+### 用户信息获取
+
+示例，获取用户信息
+```Go
+func GetUserInfo(wx *weixin.Weixin, openid string) {
+	user, err := wx.GetUserInfo(openid)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(user.Nickname)
+		fmt.Println(user.Sex)
+		fmt.Println(user.City)
+		fmt.Println(user.Country)
+		fmt.Println(user.Province)
+		fmt.Println(user.HeadImageUrl)
+		fmt.Println(user.SubscribeTime)
+		fmt.Println(user.Remark)
+	}
+}
+```
+
+
 ## 参考连接
 
 * [Wiki](https://github.com/wizjin/weixin/wiki)
@@ -277,9 +344,16 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.5.2 - upcoming
+### Version 0.5.3 - upcoming
 
 - 用户管理
+
+### Version 0.5.2 - 2015/12/05
+
+- 添加JSSDK签名生成
+- 添加重定向URL生成
+- 添加获取用户OpenId和UnionId
+- 添加获取授权用户信息
 
 ### Version 0.5.1 - 2015/06/26
 
