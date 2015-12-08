@@ -254,8 +254,8 @@ type Weixin struct {
 	tokenChan  chan accessToken
 	ticketChan chan jsApiTicket
 	userData   interface{}
-	AppId      string
-	AppSecret  string
+	appId      string
+	appSecret  string
 }
 
 // Convert qr scene to url
@@ -282,6 +282,14 @@ func NewWithUserData(token string, appid string, secret string, userData interfa
 	wx := New(token, appid, secret)
 	wx.userData = userData
 	return wx
+}
+
+func (wx *Weixin) GetAppId() string {
+	return wx.appId
+}
+
+func (wx *Weixin) GetAppSecret() string {
+	return wx.appSecret
 }
 
 // Register request callback.
