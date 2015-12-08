@@ -254,8 +254,8 @@ type Weixin struct {
 	tokenChan  chan accessToken
 	ticketChan chan jsApiTicket
 	userData   interface{}
-	appId      string
-	appSecret  string
+	AppId      string
+	AppSecret  string
 }
 
 // Convert qr scene to url
