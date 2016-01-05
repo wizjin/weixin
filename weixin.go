@@ -23,30 +23,32 @@ import (
 
 const (
 	// Event type
-	msgEvent         = "event"
-	EventSubscribe   = "subscribe"
-	EventUnsubscribe = "unsubscribe"
-	EventScan        = "SCAN"
-	EventView        = "VIEW"
-	EventClick       = "CLICK"
-	EventLocation    = "LOCATION"
+	msgEvent          = "event"
+	EventSubscribe    = "subscribe"
+	EventUnsubscribe  = "unsubscribe"
+	EventScan         = "SCAN"
+	EventView         = "VIEW"
+	EventClick        = "CLICK"
+	EventLocation     = "LOCATION"
+	EventTemplateSent = "TEMPLATESENDJOBFINISH"
 
 	// Message type
-	MsgTypeDefault          = ".*"
-	MsgTypeText             = "text"
-	MsgTypeImage            = "image"
-	MsgTypeVoice            = "voice"
-	MsgTypeVideo            = "video"
-	MsgTypeShortVideo       = "shortvideo"
-	MsgTypeLocation         = "location"
-	MsgTypeLink             = "link"
-	MsgTypeEvent            = msgEvent + ".*"
-	MsgTypeEventSubscribe   = msgEvent + "\\." + EventSubscribe
-	MsgTypeEventUnsubscribe = msgEvent + "\\." + EventUnsubscribe
-	MsgTypeEventScan        = msgEvent + "\\." + EventScan
-	MsgTypeEventView        = msgEvent + "\\." + EventView
-	MsgTypeEventClick       = msgEvent + "\\." + EventClick
-	MsgTypeEventLocation    = msgEvent + "\\." + EventLocation
+	MsgTypeDefault           = ".*"
+	MsgTypeText              = "text"
+	MsgTypeImage             = "image"
+	MsgTypeVoice             = "voice"
+	MsgTypeVideo             = "video"
+	MsgTypeShortVideo        = "shortvideo"
+	MsgTypeLocation          = "location"
+	MsgTypeLink              = "link"
+	MsgTypeEvent             = msgEvent + ".*"
+	MsgTypeEventSubscribe    = msgEvent + "\\." + EventSubscribe
+	MsgTypeEventUnsubscribe  = msgEvent + "\\." + EventUnsubscribe
+	MsgTypeEventScan         = msgEvent + "\\." + EventScan
+	MsgTypeEventView         = msgEvent + "\\." + EventView
+	MsgTypeEventClick        = msgEvent + "\\." + EventClick
+	MsgTypeEventLocation     = msgEvent + "\\." + EventLocation
+	MsgTypeEventTemplateSent = msgEvent + "\\." + EventTemplateSent
 
 	// Media type
 	MediaTypeImage = "image"
@@ -64,6 +66,10 @@ const (
 	MenuButtonTypeLocationSelect  = "location_select"
 	MenuButtonTypeMediaId         = "media_id"
 	MenuButtonTypeViewLimited     = "view_limited"
+	// Template Status
+	TemplateSentStatusSuccess      = "success"
+	TemplateSentStatusUserBlock    = "failed:user block"
+	TemplateSentStatusSystemFailed = "failed:system failed"
 	// Redirect Scope
 	RedirectURLScopeBasic    = "snsapi_base"
 	RedirectURLScopeUserInfo = "snsapi_userinfo"
@@ -74,6 +80,7 @@ const (
 	weixinShortURL           = "https://api.weixin.qq.com/cgi-bin/shorturl"
 	weixinUserInfo           = "https://api.weixin.qq.com/cgi-bin/user/info"
 	weixinFileURL            = "http://file.api.weixin.qq.com/cgi-bin/media"
+	weixinTemplate           = "https://api.weixin.qq.com/cgi-bin/template"
 	weixinRedirectURL        = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect"
 	weixinUserAccessTokenURL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
 	weixinJsApiTicketURL     = "https://api.weixin.qq.com/cgi-bin/ticket/getticket"
@@ -126,6 +133,7 @@ type Request struct {
 	Longitude    float32
 	Precision    float32
 	Recognition  string
+	Status       string
 }
 
 // Use to reply music message
@@ -211,6 +219,7 @@ type ResponseWriter interface {
 	PostVideo(mediaId string, title string, description string) error
 	PostMusic(music *Music) error
 	PostNews(articles []Article) error
+	PostTemplateMessage(templateid string, url string, data interface{}) (string, error)
 	// Media operator
 	UploadMediaFromFile(mediaType string, filepath string) (string, error)
 	DownloadMediaToFile(mediaId string, filepath string) error
@@ -518,6 +527,72 @@ func (wx *Weixin) GetMenu() (*Menu, error) {
 func (wx *Weixin) DeleteMenu() error {
 	_, err := sendGetRequest(weixinHost+"/menu/delete?access_token=", wx.tokenChan)
 	return err
+}
+
+// Template
+func (wx *Weixin) SetTemplateIndustry(id1 string, id2 string) error {
+	var industry struct {
+		Id1 string `json:"industry_id1,omitempty"`
+		Id2 string `json:"industry_id2,omitempty"`
+	}
+	industry.Id1 = id1
+	industry.Id2 = id2
+	data, err := marshal(industry)
+	if err != nil {
+		return err
+	}
+	_, err = postRequest(weixinTemplate+"/api_set_industry?access_token=", wx.tokenChan, data)
+	return err
+}
+
+func (wx *Weixin) AddTemplate(shortid string) (string, error) {
+	var request struct {
+		Shortid string `json:"template_id_short,omitempty"`
+	}
+	request.Shortid = shortid
+	data, err := marshal(request)
+	if err != nil {
+		return "", err
+	}
+	reply, err := postRequest(weixinTemplate+"/api_set_industry?access_token=", wx.tokenChan, data)
+	if err != nil {
+		return "", err
+	}
+	var templateId struct {
+		Id string `json:"template_id,omitempty"`
+	}
+	if err := json.Unmarshal(reply, &templateId); err != nil {
+		return "", err
+	}
+	return templateId.Id, nil
+}
+
+func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url string, data interface{}) (string, error) {
+	var msg struct {
+		ToUser     string      `json:"touser"`
+		TemplateId string      `json:"template_id"`
+		Url        string      `json:"url,omitempty"`
+		Data       interface{} `json:"data,omitempty"`
+	}
+	msg.ToUser = touser
+	msg.TemplateId = templateid
+	msg.Url = url
+	msg.Data = data
+	msgStr, err := marshal(msg)
+	if err != nil {
+		return "", err
+	}
+	reply, err := postRequest(weixinHost+"/message/template/send?access_token=", wx.tokenChan, msgStr)
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		MsgId string `json:"msgid,omitempty"`
+	}
+	if err := json.Unmarshal(reply, &resp); err != nil {
+		return "", err
+	}
+	return resp.MsgId, nil
 }
 
 // Create redirect url
@@ -975,6 +1050,11 @@ func (w responseWriter) PostMusic(music *Music) error {
 // Post news message
 func (w responseWriter) PostNews(articles []Article) error {
 	return w.wx.PostNews(w.toUserName, articles)
+}
+
+// Post template message
+func (w responseWriter) PostTemplateMessage(templateid string, url string, data interface{}) (string, error) {
+	return w.wx.PostTemplateMessage(w.toUserName, templateid, url, data)
 }
 
 // Upload media from local file
