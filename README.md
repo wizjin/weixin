@@ -85,6 +85,7 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 - `weixin.MsgTypeEventView`			接收点击菜单跳转链接时的事件
 - `weixin.MsgTypeEventClick`		接收自定义菜单事件
 - `weixin.MsgTypeEventLocation`		接收上报地理位置事件
+- `weixin.MsgTypeEventTemplateSent` 接收模版消息发送结果
 
 ### 发送被动响应消息
 
@@ -106,6 +107,43 @@ func Func(w weixin.ResponseWriter, r *weixin.Request) {
 - `PostVideo(mediaId, title, description)`	发送视频消息
 - `PostMusic(music)`						发送音乐消息
 - `PostNews(articles)`						发送图文消息
+
+### 发送模版消息
+
+如需要发送模版消息，需要先获取模版ID，之后再根据ID发送。
+
+```Go
+func GetTemplateId(wx *weixin.Weixin) {
+	tid, err := wx.AddTemplate("TM00015")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(ips)	// 模版ID
+	}
+}
+```
+
+随后可以发送模版消息了。
+
+```Go
+func SendTemplateMessage(w weixin.ResponseWriter, r *weixin.Request) {
+	templateId := ...
+	url := ...
+	msgid, err := w.PostTemplateMessage(templateId, url, "Hello World!")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(msgid)
+	}
+}
+```
+
+在模版消息发送成功后，还会通过类型为`MsgTypeEventTemplateSent`的消息推送获得发送结果。
+
+- `TemplateSentStatusSuccess` 		发送成功
+- `TemplateSentStatusUserBlock`		发送失败，用户拒绝接收
+- `TemplateSentStatusSystemFailed`	发送失败，系统原因
+
 
 ### 上传/下载多媒体文件
 
@@ -344,9 +382,13 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ## 更新日志
 
-### Version 0.5.3 - upcoming
+### Version 0.5.4 - upcoming
 
 - 用户管理
+
+### Version 0.5.3 - 2016/01/05
+
+- 添加模版消息推动
 
 ### Version 0.5.2 - 2015/12/05
 
