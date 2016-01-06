@@ -198,6 +198,12 @@ type UserInfo struct {
 	GroupId       int    `json:"groupid,omitempty"`
 }
 
+type TmplData map[string]TmplItem
+type TmplItem struct {
+	Value string `json:"value,omitempty"`
+	Color string `json:"color,omitempty"`
+}
+
 // Use to output reply
 type ResponseWriter interface {
 	// Get weixin
@@ -219,7 +225,7 @@ type ResponseWriter interface {
 	PostVideo(mediaId string, title string, description string) error
 	PostMusic(music *Music) error
 	PostNews(articles []Article) error
-	PostTemplateMessage(templateid string, url string, data interface{}) (string, error)
+	PostTemplateMessage(templateid string, url string, data TmplData) (string, error)
 	// Media operator
 	UploadMediaFromFile(mediaType string, filepath string) (string, error)
 	DownloadMediaToFile(mediaId string, filepath string) error
@@ -567,12 +573,12 @@ func (wx *Weixin) AddTemplate(shortid string) (string, error) {
 	return templateId.Id, nil
 }
 
-func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url string, data interface{}) (string, error) {
+func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url string, data TmplData) (string, error) {
 	var msg struct {
-		ToUser     string      `json:"touser"`
-		TemplateId string      `json:"template_id"`
-		Url        string      `json:"url,omitempty"`
-		Data       interface{} `json:"data,omitempty"`
+		ToUser     string   `json:"touser"`
+		TemplateId string   `json:"template_id"`
+		Url        string   `json:"url,omitempty"`
+		Data       TmplData `json:"data,omitempty"`
 	}
 	msg.ToUser = touser
 	msg.TemplateId = templateid
@@ -1053,7 +1059,7 @@ func (w responseWriter) PostNews(articles []Article) error {
 }
 
 // Post template message
-func (w responseWriter) PostTemplateMessage(templateid string, url string, data interface{}) (string, error) {
+func (w responseWriter) PostTemplateMessage(templateid string, url string, data TmplData) (string, error) {
 	return w.wx.PostTemplateMessage(w.toUserName, templateid, url, data)
 }
 
