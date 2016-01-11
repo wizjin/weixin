@@ -129,7 +129,8 @@ func GetTemplateId(wx *weixin.Weixin) {
 func SendTemplateMessage(w weixin.ResponseWriter, r *weixin.Request) {
 	templateId := ...
 	url := ...
-	msgid, err := w.PostTemplateMessage(templateId, url, "Hello World!")
+	msgid, err := w.PostTemplateMessage(templateId, url,
+		weixin.TmplData{ "first": weixin.TmplItem{"Hello World!", "#173177"}})
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -388,7 +389,7 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 
 ### Version 0.5.3 - 2016/01/05
 
-- 添加模版消息推动
+- 添加模版消息送
 
 ### Version 0.5.2 - 2015/12/05
 
