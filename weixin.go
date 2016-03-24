@@ -264,13 +264,14 @@ type jsApiTicket struct {
 }
 
 type Weixin struct {
-	token      string
-	routes     []*route
-	tokenChan  chan accessToken
-	ticketChan chan jsApiTicket
-	userData   interface{}
-	appId      string
-	appSecret  string
+	token        string
+	routes       []*route
+	tokenChan    chan accessToken
+	ticketChan   chan jsApiTicket
+	userData     interface{}
+	appId        string
+	appSecret    string
+	refreshToken bool
 }
 
 // Convert qr scene to url
@@ -284,9 +285,10 @@ func New(token string, appid string, secret string) *Weixin {
 	wx.token = token
 	wx.appId = appid
 	wx.appSecret = secret
+	wx.refreshToken = false
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
-		go createAccessToken(wx.tokenChan, appid, secret)
+		go createAccessToken(wx.tokenChan, appid, secret, &wx.refreshToken)
 		wx.ticketChan = make(chan jsApiTicket)
 		go createJsApiTicket(wx.tokenChan, wx.ticketChan)
 	}
@@ -305,6 +307,11 @@ func (wx *Weixin) GetAppId() string {
 
 func (wx *Weixin) GetAppSecret() string {
 	return wx.appSecret
+}
+
+func (wx *Weixin) RefreshAccessToken() {
+	wx.refreshToken = true
+	<-wx.tokenChan
 }
 
 // Register request callback.
@@ -784,11 +791,12 @@ func getJsApiTicket(c chan accessToken) (*jsApiTicket, error) {
 
 }
 
-func createAccessToken(c chan accessToken, appid string, secret string) {
+func createAccessToken(c chan accessToken, appid string, secret string, refresh *bool) {
 	token := accessToken{"", time.Now()}
 	c <- token
 	for {
-		if time.Since(token.expires).Seconds() >= 0 {
+		if *refresh || time.Since(token.expires).Seconds() >= 0 {
+			*refresh = false
 			var expires time.Duration
 			token.token, expires = authAccessToken(appid, secret)
 			token.expires = time.Now().Add(expires)
