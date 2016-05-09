@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"sync/atomic"
 	"time"
 )
 
@@ -271,7 +272,7 @@ type Weixin struct {
 	userData     interface{}
 	appId        string
 	appSecret    string
-	refreshToken bool
+	refreshToken int32
 }
 
 // Convert qr scene to url
@@ -285,10 +286,10 @@ func New(token string, appid string, secret string) *Weixin {
 	wx.token = token
 	wx.appId = appid
 	wx.appSecret = secret
-	wx.refreshToken = false
+	wx.refreshToken = 0
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
-		go createAccessToken(wx.tokenChan, appid, secret, &wx.refreshToken)
+		go wx.createAccessToken(wx.tokenChan, appid, secret)
 		wx.ticketChan = make(chan jsApiTicket)
 		go createJsApiTicket(wx.tokenChan, wx.ticketChan)
 	}
@@ -310,7 +311,7 @@ func (wx *Weixin) GetAppSecret() string {
 }
 
 func (wx *Weixin) RefreshAccessToken() {
-	wx.refreshToken = true
+	atomic.StoreInt32(&wx.refreshToken, 1)
 	<-wx.tokenChan
 }
 
@@ -791,12 +792,12 @@ func getJsApiTicket(c chan accessToken) (*jsApiTicket, error) {
 
 }
 
-func createAccessToken(c chan accessToken, appid string, secret string, refresh *bool) {
+func (wx *Weixin) createAccessToken(c chan accessToken, appid string, secret string) {
 	token := accessToken{"", time.Now()}
 	c <- token
 	for {
-		if *refresh || time.Since(token.expires).Seconds() >= 0 {
-			*refresh = false
+		swapped := atomic.CompareAndSwapInt32(&wx.refreshToken, 1, 0)
+		if swapped || time.Since(token.expires).Seconds() >= 0 {
 			var expires time.Duration
 			token.token, expires = authAccessToken(appid, secret)
 			token.expires = time.Now().Add(expires)
