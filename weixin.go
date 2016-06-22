@@ -205,7 +205,8 @@ type UserInfo struct {
 type Material struct {
 	MediaId    string `json:"media_id,omitempty"`
 	Name       string `json:"name,omitempty"`
-	UpdateTime string `json:"update_time,omitempty"`
+	UpdateTime int64  `json:"update_time,omitempty"`
+	CreateTime int64  `json:"create_time,omitempty"`
 	Url        string `json:"url,omitempty"`
 	Content    struct {
 		NewsItem []struct {
