@@ -78,6 +78,7 @@ const (
 	weixinHost               = "https://api.weixin.qq.com/cgi-bin"
 	weixinQRScene            = "https://api.weixin.qq.com/cgi-bin/qrcode"
 	weixinShowQRScene        = "https://mp.weixin.qq.com/cgi-bin/showqrcode"
+	weixinMaterialURL        = "https://api.weixin.qq.com/cgi-bin/material"
 	weixinShortURL           = "https://api.weixin.qq.com/cgi-bin/shorturl"
 	weixinUserInfo           = "https://api.weixin.qq.com/cgi-bin/user/info"
 	weixinFileURL            = "http://file.api.weixin.qq.com/cgi-bin/media"
@@ -98,6 +99,8 @@ const (
 	replyArticle            = "<item><Title><![CDATA[%s]]></Title> <Description><![CDATA[%s]]></Description><PicUrl><![CDATA[%s]]></PicUrl><Url><![CDATA[%s]]></Url></item>"
 	transferCustomerService = "<xml>" + replyHeader + "<MsgType><![CDATA[transfer_customer_service]]></MsgType></xml>"
 
+	// Material request
+	requestMaterial = `{"type":"%s","offset":%d,"count":%d}`
 	// QR scene request
 	requestQRScene      = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_id":%d}}}`
 	requestQRLimitScene = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_id":%d}}}`
@@ -197,6 +200,31 @@ type UserInfo struct {
 	SubscribeTime int64  `json:"subscribe_time,omitempty"`
 	Remark        string `json:"remark,omitempty"`
 	GroupId       int    `json:"groupid,omitempty"`
+}
+
+type Material struct {
+	MediaId    string `json:"media_id,omitempty"`
+	Name       string `json:"name,omitempty"`
+	UpdateTime string `json:"update_time,omitempty"`
+	Url        string `json:"url,omitempty"`
+	Content    struct {
+		NewsItem []struct {
+			Title            string `json:"title,omitempty"`
+			ThumbMediaId     string `json:"thumb_media_id,omitempty"`
+			ShowCoverPic     int    `json:"show_cover_pic,omitempty"`
+			Author           string `json:"author,omitempty"`
+			Digest           string `json:"digest,omitempty"`
+			Content          string `json:"content,omitempty"`
+			Url              string `json:"url,omitempty"`
+			ContentSourceUrl string `json:"content_source_url,omitempty"`
+		} `json:"news_item,omitempty"`
+	} `json:"content,omitempty"`
+}
+
+type Materials struct {
+	TotalCount int        `json:"total_count,omitempty"`
+	ItemCount  int        `json:"item_count,omitempty"`
+	Items      []Material `json:"item,omitempty"`
 }
 
 type TmplData map[string]TmplItem
@@ -446,6 +474,20 @@ func (wx *Weixin) UploadMedia(mediaType string, filename string, reader io.Reade
 // Download media with media
 func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
 	return downloadMedia(wx.tokenChan, mediaId, writer)
+}
+
+// Batch Get Material
+func (wx *Weixin) BatchGetMaterial(materialType string, offset int, count int) (*Materials, error) {
+	reply, err := postRequest(weixinMaterialURL+"/batchget_material?access_token=", wx.tokenChan,
+		[]byte(fmt.Sprintf(requestMaterial, materialType, offset, count)))
+	if err != nil {
+		return nil, err
+	}
+	var materials Materials
+	if err := json.Unmarshal(reply, &materials); err != nil {
+		return nil, err
+	}
+	return &materials, nil
 }
 
 // Get ip list
