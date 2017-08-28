@@ -102,8 +102,10 @@ const (
 	// Material request
 	requestMaterial = `{"type":"%s","offset":%d,"count":%d}`
 	// QR scene request
-	requestQRScene      = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_id":%d}}}`
-	requestQRLimitScene = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_id":%d}}}`
+	requestQRScene         = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_id":%d}}}`
+	requestQRSceneStr      = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_str":%s}}}`
+	requestQRLimitScene    = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_id":%d}}}`
+	requestQRLimitSceneStr = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_str":%d}}}`
 )
 
 // Common message header
@@ -519,9 +521,35 @@ func (wx *Weixin) CreateQRScene(sceneId int, expires int) (*QRScene, error) {
 	return &qr, nil
 }
 
+// Create QR scene by str
+func (wx *Weixin) CreateQRSceneByString(sceneStr string, expires int) (*QRScene, error) {
+	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRSceneStr, expires, sceneStr)))
+	if err != nil {
+		return nil, err
+	}
+	var qr QRScene
+	if err := json.Unmarshal(reply, &qr); err != nil {
+		return nil, err
+	}
+	return &qr, nil
+}
+
 // Create  QR limit scene
 func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
 	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitScene, sceneId)))
+	if err != nil {
+		return nil, err
+	}
+	var qr QRScene
+	if err := json.Unmarshal(reply, &qr); err != nil {
+		return nil, err
+	}
+	return &qr, nil
+}
+
+// Create  QR limit scene by str
+func (wx *Weixin) CreateQRLimitSceneByString(sceneStr string) (*QRScene, error) {
+	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitSceneStr, sceneStr)))
 	if err != nil {
 		return nil, err
 	}
