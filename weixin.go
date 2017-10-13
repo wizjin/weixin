@@ -103,9 +103,9 @@ const (
 	requestMaterial = `{"type":"%s","offset":%d,"count":%d}`
 	// QR scene request
 	requestQRScene         = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_id":%d}}}`
-	requestQRSceneStr      = `{"expire_seconds":%d,"action_name":"QR_SCENE","action_info":{"scene":{"scene_str":%s}}}`
+	requestQRSceneStr      = `{"expire_seconds":%d,"action_name":"QR_STR_SCENE","action_info":{"scene":{"scene_str":"%s"}}}`
 	requestQRLimitScene    = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_id":%d}}}`
-	requestQRLimitSceneStr = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_str":%d}}}`
+	requestQRLimitSceneStr = `{"action_name":"QR_LIMIT_STR_SCENE","action_info":{"scene":{"scene_str":"%s"}}}`
 )
 
 // Common message header
