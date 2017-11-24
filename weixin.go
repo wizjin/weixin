@@ -163,7 +163,7 @@ type Article struct {
 type QRScene struct {
 	Ticket        string `json:"ticket"`
 	ExpireSeconds int    `json:"expire_seconds"`
-	Url           string `json:"url"`
+	Url           string `json:"url,omitempty"`
 }
 
 // Custom Menu
