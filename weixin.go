@@ -67,6 +67,7 @@ const (
 	MenuButtonTypeLocationSelect  = "location_select"
 	MenuButtonTypeMediaId         = "media_id"
 	MenuButtonTypeViewLimited     = "view_limited"
+	MenuButtonTypeMiniProgram     = "miniprogram"
 	// Template Status
 	TemplateSentStatusSuccess      = "success"
 	TemplateSentStatusUserBlock    = "failed:user block"
@@ -178,6 +179,8 @@ type MenuButton struct {
 	Url        string       `json:"url,omitempty"`
 	MediaId    string       `json:"media_id,omitempty"`
 	SubButtons []MenuButton `json:"sub_button,omitempty"`
+	AppId      string       `json:"appid,omitempty"`
+	PagePath   string       `json:"pagepath,omitempty"`
 }
 
 type UserAccessToken struct {
