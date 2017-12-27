@@ -239,6 +239,18 @@ type TmplItem struct {
 	Value string `json:"value,omitempty"`
 	Color string `json:"color,omitempty"`
 }
+type TmplMiniProgram struct {
+	AppId    string `json:"appid,omitempty"`
+	PagePath string `json:"pagepath,omitempty"`
+}
+type TmplMsg struct {
+	ToUser      string           `json:"touser"`
+	TemplateId  string           `json:"template_id"`
+	Url         string           `json:"url,omitempty"`         // 若填写跳转小程序 则此为版本过低的替代跳转url
+	MiniProgram *TmplMiniProgram `json:"miniprogram,omitempty"` // 跳转小程序 选填
+	Data        TmplData         `json:"data,omitempty"`
+	Color       string           `json:"color,omitempty"` // 全局颜色
+}
 
 // Use to output reply
 type ResponseWriter interface {
@@ -667,6 +679,25 @@ func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url stri
 	msg.TemplateId = templateid
 	msg.Url = url
 	msg.Data = data
+	msgStr, err := marshal(msg)
+	if err != nil {
+		return 0, err
+	}
+	reply, err := postRequest(weixinHost+"/message/template/send?access_token=", wx.tokenChan, msgStr)
+	if err != nil {
+		return 0, err
+	}
+	var resp struct {
+		MsgId int32 `json:"msgid,omitempty"`
+	}
+	if err := json.Unmarshal(reply, &resp); err != nil {
+		return 0, err
+	}
+	return resp.MsgId, nil
+}
+
+// PostTemplateMessageMiniProgram 兼容模板消息跳转小程序
+func (wx *Weixin) PostTemplateMessageMiniProgram(msg *TmplMsg) (int32, error) {
 	msgStr, err := marshal(msg)
 	if err != nil {
 		return 0, err
