@@ -697,7 +697,7 @@ func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url stri
 }
 
 // PostTemplateMessageMiniProgram 兼容模板消息跳转小程序
-func (wx *Weixin) PostTemplateMessageMiniProgram(msg *TmplMsg) (int32, error) {
+func (wx *Weixin) PostTemplateMessageMiniProgram(msg *TmplMsg) (int64, error) {
 	msgStr, err := marshal(msg)
 	if err != nil {
 		return 0, err
@@ -707,7 +707,7 @@ func (wx *Weixin) PostTemplateMessageMiniProgram(msg *TmplMsg) (int32, error) {
 		return 0, err
 	}
 	var resp struct {
-		MsgId int32 `json:"msgid,omitempty"`
+		MsgId int64 `json:"msgid,omitempty"`
 	}
 	if err := json.Unmarshal(reply, &resp); err != nil {
 		return 0, err
