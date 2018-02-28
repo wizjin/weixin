@@ -1,4 +1,4 @@
-// Weixin MP SDK (Golang)
+// Package weixin MP SDK (Golang)
 package weixin
 
 import (
@@ -22,9 +22,11 @@ import (
 	"time"
 )
 
+// nolint
 const (
 	// Event type
-	msgEvent          = "event"
+	msgEvent = "event"
+
 	EventSubscribe    = "subscribe"
 	EventUnsubscribe  = "unsubscribe"
 	EventScan         = "SCAN"
@@ -109,7 +111,7 @@ const (
 	requestQRLimitSceneStr = `{"action_name":"QR_LIMIT_STR_SCENE","action_info":{"scene":{"scene_str":"%s"}}}`
 )
 
-// Common message header
+// MessageHeader is the header of common message.
 type MessageHeader struct {
 	ToUserName   string
 	FromUserName string
@@ -117,22 +119,22 @@ type MessageHeader struct {
 	MsgType      string
 }
 
-// Weixin request
+// Request is weixin event request.
 type Request struct {
 	MessageHeader
-	MsgId        int64
+	MsgId        int64 // nolint
 	Content      string
-	PicUrl       string
-	MediaId      string
+	PicUrl       string // nolint
+	MediaId      string // nolint
 	Format       string
-	ThumbMediaId string
+	ThumbMediaId string  // nolint
 	LocationX    float32 `xml:"Location_X"`
 	LocationY    float32 `xml:"Location_Y"`
 	Scale        float32
 	Label        string
 	Title        string
 	Description  string
-	Url          string
+	Url          string // nolint
 	Event        string
 	EventKey     string
 	Ticket       string
@@ -143,116 +145,129 @@ type Request struct {
 	Status       string
 }
 
-// Use to reply music message
+// Music is the response of music message.
 type Music struct {
 	Title        string `json:"title"`
 	Description  string `json:"description"`
-	MusicUrl     string `json:"musicurl"`
-	HQMusicUrl   string `json:"hqmusicurl"`
-	ThumbMediaId string `json:"thumb_media_id"`
+	MusicUrl     string `json:"musicurl"`       // nolint
+	HQMusicUrl   string `json:"hqmusicurl"`     // nolint
+	ThumbMediaId string `json:"thumb_media_id"` // nolint
 }
 
-// Use to reply news message
+// Article is the response of news message.
 type Article struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	PicUrl      string `json:"picurl"`
-	Url         string `json:"url"`
+	PicUrl      string `json:"picurl"` // nolint
+	Url         string `json:"url"`    // nolint
 }
 
-// Use to store QR code
+// QRScene is the QR code.
 type QRScene struct {
 	Ticket        string `json:"ticket"`
 	ExpireSeconds int    `json:"expire_seconds"`
-	Url           string `json:"url,omitempty"`
+	Url           string `json:"url,omitempty"` // nolint
 }
 
-// Custom Menu
+// Menu is custom menu.
 type Menu struct {
 	Buttons []MenuButton `json:"button,omitempty"`
 }
 
+// MenuButton is the button of custom menu.
 type MenuButton struct {
 	Name       string       `json:"name"`
 	Type       string       `json:"type,omitempty"`
 	Key        string       `json:"key,omitempty"`
-	Url        string       `json:"url,omitempty"`
-	MediaId    string       `json:"media_id,omitempty"`
+	Url        string       `json:"url,omitempty"`      // nolint
+	MediaId    string       `json:"media_id,omitempty"` // nolint
 	SubButtons []MenuButton `json:"sub_button,omitempty"`
-	AppId      string       `json:"appid,omitempty"`
+	AppId      string       `json:"appid,omitempty"` // nolint
 	PagePath   string       `json:"pagepath,omitempty"`
 }
 
+// UserAccessToken access token for user.
 type UserAccessToken struct {
 	AccessToken   string `json:"access_token"`
 	RefreshToken  string `json:"refresh_token"`
 	ExpireSeconds int    `json:"expires_in"`
-	OpenId        string `json:"openid"`
+	OpenId        string `json:"openid"` // nolint
 	Scope         string `json:"scope"`
-	UnionId       string `json:"unionid,omitempty"`
+	UnionId       string `json:"unionid,omitempty"` // nolint
 }
 
+// UserInfo store user information.
 type UserInfo struct {
 	Subscribe     int    `json:"subscribe,omitempty"`
 	Language      string `json:"language,omitempty"`
-	OpenId        string `json:"openid,omitempty"`
-	UnionId       string `json:"unionid,omitempty"`
+	OpenId        string `json:"openid,omitempty"`  // nolint
+	UnionId       string `json:"unionid,omitempty"` // nolint
 	Nickname      string `json:"nickname,omitempty"`
 	Sex           int    `json:"sex,omitempty"`
 	City          string `json:"city,omitempty"`
 	Country       string `json:"country,omitempty"`
 	Province      string `json:"province,omitempty"`
-	HeadImageUrl  string `json:"headimgurl,omitempty"`
+	HeadImageUrl  string `json:"headimgurl,omitempty"` // nolint
 	SubscribeTime int64  `json:"subscribe_time,omitempty"`
 	Remark        string `json:"remark,omitempty"`
-	GroupId       int    `json:"groupid,omitempty"`
+	GroupId       int    `json:"groupid,omitempty"` // nolint
 }
 
+// Material data.
 type Material struct {
-	MediaId    string `json:"media_id,omitempty"`
+	MediaId    string `json:"media_id,omitempty"` // nolint
 	Name       string `json:"name,omitempty"`
 	UpdateTime int64  `json:"update_time,omitempty"`
 	CreateTime int64  `json:"create_time,omitempty"`
-	Url        string `json:"url,omitempty"`
+	Url        string `json:"url,omitempty"` // nolint
 	Content    struct {
 		NewsItem []struct {
 			Title            string `json:"title,omitempty"`
-			ThumbMediaId     string `json:"thumb_media_id,omitempty"`
+			ThumbMediaId     string `json:"thumb_media_id,omitempty"` // nolint
 			ShowCoverPic     int    `json:"show_cover_pic,omitempty"`
 			Author           string `json:"author,omitempty"`
 			Digest           string `json:"digest,omitempty"`
 			Content          string `json:"content,omitempty"`
-			Url              string `json:"url,omitempty"`
-			ContentSourceUrl string `json:"content_source_url,omitempty"`
+			Url              string `json:"url,omitempty"`                // nolint
+			ContentSourceUrl string `json:"content_source_url,omitempty"` // nolint
 		} `json:"news_item,omitempty"`
 	} `json:"content,omitempty"`
 }
 
+// Materials is the list of material
 type Materials struct {
 	TotalCount int        `json:"total_count,omitempty"`
 	ItemCount  int        `json:"item_count,omitempty"`
 	Items      []Material `json:"item,omitempty"`
 }
 
+// TmplData for mini program
 type TmplData map[string]TmplItem
+
+// TmplItem for mini program
 type TmplItem struct {
 	Value string `json:"value,omitempty"`
 	Color string `json:"color,omitempty"`
 }
+
+// TmplMiniProgram for mini program
 type TmplMiniProgram struct {
-	AppId    string `json:"appid,omitempty"`
+	AppId    string `json:"appid,omitempty"` // nolint
 	PagePath string `json:"pagepath,omitempty"`
 }
+
+// TmplMsg for mini program
 type TmplMsg struct {
 	ToUser      string           `json:"touser"`
-	TemplateId  string           `json:"template_id"`
-	Url         string           `json:"url,omitempty"`         // 若填写跳转小程序 则此为版本过低的替代跳转url
+	TemplateId  string           `json:"template_id"`           // nolint
+	Url         string           `json:"url,omitempty"`         // nolint 若填写跳转小程序 则此为版本过低的替代跳转url
 	MiniProgram *TmplMiniProgram `json:"miniprogram,omitempty"` // 跳转小程序 选填
 	Data        TmplData         `json:"data,omitempty"`
 	Color       string           `json:"color,omitempty"` // 全局颜色
 }
 
-// Use to output reply
+// ResponseWriter is used to output reply
+// nolint
 type ResponseWriter interface {
 	// Get weixin
 	GetWeixin() *Weixin
@@ -293,7 +308,7 @@ type response struct {
 	ErrorMessage string `json:"errmsg,omitempty"`
 }
 
-// Callback function
+// HandlerFunc is callback function handler
 type HandlerFunc func(ResponseWriter, *Request)
 
 type route struct {
@@ -306,74 +321,78 @@ type accessToken struct {
 	expires time.Time
 }
 
-type jsApiTicket struct {
+type jsAPITicket struct {
 	ticket  string
 	expires time.Time
 }
 
+// Weixin instance
 type Weixin struct {
 	token        string
 	routes       []*route
 	tokenChan    chan accessToken
-	ticketChan   chan jsApiTicket
+	ticketChan   chan jsAPITicket
 	userData     interface{}
-	appId        string
+	appID        string
 	appSecret    string
 	refreshToken int32
 }
 
-// Convert qr scene to url
+// ToURL convert qr scene to url.
 func (qr *QRScene) ToURL() string {
 	return (weixinShowQRScene + "?ticket=" + qr.Ticket)
 }
 
-// Create a Weixin instance
+// New create a Weixin instance.
 func New(token string, appid string, secret string) *Weixin {
 	wx := &Weixin{}
 	wx.token = token
-	wx.appId = appid
+	wx.appID = appid
 	wx.appSecret = secret
 	wx.refreshToken = 0
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
 		go wx.createAccessToken(wx.tokenChan, appid, secret)
-		wx.ticketChan = make(chan jsApiTicket)
-		go createJsApiTicket(wx.tokenChan, wx.ticketChan)
+		wx.ticketChan = make(chan jsAPITicket)
+		go createJsAPITicket(wx.tokenChan, wx.ticketChan)
 	}
 	return wx
 }
 
+// NewWithUserData create data with userdata.
 func NewWithUserData(token string, appid string, secret string, userData interface{}) *Weixin {
 	wx := New(token, appid, secret)
 	wx.userData = userData
 	return wx
 }
 
-func (wx *Weixin) GetAppId() string {
-	return wx.appId
+// GetAppId retrun app id.
+func (wx *Weixin) GetAppId() string { // nolint
+	return wx.appID
 }
 
+// GetAppSecret return app secret.
 func (wx *Weixin) GetAppSecret() string {
 	return wx.appSecret
 }
 
+// RefreshAccessToken update access token.
 func (wx *Weixin) RefreshAccessToken() {
 	atomic.StoreInt32(&wx.refreshToken, 1)
 	<-wx.tokenChan
 }
 
-// Register request callback.
+// HandleFunc used to register request callback.
 func (wx *Weixin) HandleFunc(pattern string, handler HandlerFunc) {
 	regex, err := regexp.Compile(pattern)
 	if err != nil {
 		panic(err)
-		return
 	}
 	route := &route{regex, handler}
 	wx.routes = append(wx.routes, route)
 }
 
-// Post text message
+// PostText used to post text message.
 func (wx *Weixin) PostText(touser string, text string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
@@ -388,56 +407,56 @@ func (wx *Weixin) PostText(touser string, text string) error {
 	return postMessage(wx.tokenChan, &msg)
 }
 
-// Post image message
-func (wx *Weixin) PostImage(touser string, mediaId string) error {
+// PostImage used to post image message.
+func (wx *Weixin) PostImage(touser string, mediaID string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
 		Image   struct {
-			MediaId string `json:"media_id"`
+			MediaID string `json:"media_id"`
 		} `json:"image"`
 	}
 	msg.ToUser = touser
 	msg.MsgType = "image"
-	msg.Image.MediaId = mediaId
+	msg.Image.MediaID = mediaID
 	return postMessage(wx.tokenChan, &msg)
 }
 
-// Post voice message
-func (wx *Weixin) PostVoice(touser string, mediaId string) error {
+// PostVoice used to post voice message.
+func (wx *Weixin) PostVoice(touser string, mediaID string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
 		Voice   struct {
-			MediaId string `json:"media_id"`
+			MediaID string `json:"media_id"`
 		} `json:"voice"`
 	}
 	msg.ToUser = touser
 	msg.MsgType = "voice"
-	msg.Voice.MediaId = mediaId
+	msg.Voice.MediaID = mediaID
 	return postMessage(wx.tokenChan, &msg)
 }
 
-// Post video message
+// PostVideo used to post video message.
 func (wx *Weixin) PostVideo(touser string, m string, t string, d string) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
 		MsgType string `json:"msgtype"`
 		Video   struct {
-			MediaId     string `json:"media_id"`
+			MediaID     string `json:"media_id"`
 			Title       string `json:"title"`
 			Description string `json:"description"`
 		} `json:"video"`
 	}
 	msg.ToUser = touser
 	msg.MsgType = "video"
-	msg.Video.MediaId = m
+	msg.Video.MediaID = m
 	msg.Video.Title = t
 	msg.Video.Description = d
 	return postMessage(wx.tokenChan, &msg)
 }
 
-// Post music message
+// PostMusic used to post music message.
 func (wx *Weixin) PostMusic(touser string, music *Music) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
@@ -450,7 +469,7 @@ func (wx *Weixin) PostMusic(touser string, music *Music) error {
 	return postMessage(wx.tokenChan, &msg)
 }
 
-// Post news message
+// PostNews used to post news message.
 func (wx *Weixin) PostNews(touser string, articles []Article) error {
 	var msg struct {
 		ToUser  string `json:"touser"`
@@ -465,7 +484,7 @@ func (wx *Weixin) PostNews(touser string, articles []Article) error {
 	return postMessage(wx.tokenChan, &msg)
 }
 
-// Upload media from local file
+// UploadMediaFromFile used to upload media from local file.
 func (wx *Weixin) UploadMediaFromFile(mediaType string, fp string) (string, error) {
 	file, err := os.Open(fp)
 	if err != nil {
@@ -475,27 +494,27 @@ func (wx *Weixin) UploadMediaFromFile(mediaType string, fp string) (string, erro
 	return wx.UploadMedia(mediaType, filepath.Base(fp), file)
 }
 
-// Download media and save to local file
-func (wx *Weixin) DownloadMediaToFile(mediaId string, fp string) error {
+// DownloadMediaToFile used to download media and save to local file.
+func (wx *Weixin) DownloadMediaToFile(mediaID string, fp string) error {
 	file, err := os.Create(fp)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	return wx.DownloadMedia(mediaId, file)
+	return wx.DownloadMedia(mediaID, file)
 }
 
-// Upload media with media
+// UploadMedia used to upload media with media.
 func (wx *Weixin) UploadMedia(mediaType string, filename string, reader io.Reader) (string, error) {
 	return uploadMedia(wx.tokenChan, mediaType, filename, reader)
 }
 
-// Download media with media
-func (wx *Weixin) DownloadMedia(mediaId string, writer io.Writer) error {
-	return downloadMedia(wx.tokenChan, mediaId, writer)
+// DownloadMedia used to download media with media.
+func (wx *Weixin) DownloadMedia(mediaID string, writer io.Writer) error {
+	return downloadMedia(wx.tokenChan, mediaID, writer)
 }
 
-// Batch Get Material
+// BatchGetMaterial used to batch get Material.
 func (wx *Weixin) BatchGetMaterial(materialType string, offset int, count int) (*Materials, error) {
 	reply, err := postRequest(weixinMaterialURL+"/batchget_material?access_token=", wx.tokenChan,
 		[]byte(fmt.Sprintf(requestMaterial, materialType, offset, count)))
@@ -509,24 +528,24 @@ func (wx *Weixin) BatchGetMaterial(materialType string, offset int, count int) (
 	return &materials, nil
 }
 
-// Get ip list
-func (wx *Weixin) GetIpList() ([]string, error) {
+// GetIpList used to get ip list.
+func (wx *Weixin) GetIpList() ([]string, error) { // nolint
 	reply, err := sendGetRequest(weixinHost+"/getcallbackip?access_token=", wx.tokenChan)
 	if err != nil {
 		return nil, err
 	}
 	var result struct {
-		IpList []string `json:"ip_list"`
+		IPList []string `json:"ip_list"`
 	}
 	if err := json.Unmarshal(reply, &result); err != nil {
 		return nil, err
 	}
-	return result.IpList, nil
+	return result.IPList, nil
 }
 
-// Create QR scene
-func (wx *Weixin) CreateQRScene(sceneId int, expires int) (*QRScene, error) {
-	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRScene, expires, sceneId)))
+// CreateQRScene used to create QR scene.
+func (wx *Weixin) CreateQRScene(sceneID int, expires int) (*QRScene, error) {
+	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRScene, expires, sceneID)))
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +556,7 @@ func (wx *Weixin) CreateQRScene(sceneId int, expires int) (*QRScene, error) {
 	return &qr, nil
 }
 
-// Create QR scene by str
+// CreateQRSceneByString used to create QR scene by str.
 func (wx *Weixin) CreateQRSceneByString(sceneStr string, expires int) (*QRScene, error) {
 	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRSceneStr, expires, sceneStr)))
 	if err != nil {
@@ -550,9 +569,9 @@ func (wx *Weixin) CreateQRSceneByString(sceneStr string, expires int) (*QRScene,
 	return &qr, nil
 }
 
-// Create  QR limit scene
-func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
-	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitScene, sceneId)))
+// CreateQRLimitScene used to create QR limit scene.
+func (wx *Weixin) CreateQRLimitScene(sceneID int) (*QRScene, error) {
+	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitScene, sceneID)))
 	if err != nil {
 		return nil, err
 	}
@@ -563,7 +582,7 @@ func (wx *Weixin) CreateQRLimitScene(sceneId int) (*QRScene, error) {
 	return &qr, nil
 }
 
-// Create  QR limit scene by str
+// CreateQRLimitSceneByString used to create QR limit scene by str.
 func (wx *Weixin) CreateQRLimitSceneByString(sceneStr string) (*QRScene, error) {
 	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitSceneStr, sceneStr)))
 	if err != nil {
@@ -576,14 +595,14 @@ func (wx *Weixin) CreateQRLimitSceneByString(sceneStr string) (*QRScene, error) 
 	return &qr, nil
 }
 
-// Long url to short url
+// ShortURL used to convert long url to short url
 func (wx *Weixin) ShortURL(url string) (string, error) {
 	var request struct {
 		Action  string `json:"action"`
-		LongUrl string `json:"long_url"`
+		LongURL string `json:"long_url"`
 	}
 	request.Action = "long2short"
-	request.LongUrl = url
+	request.LongURL = url
 	data, err := marshal(request)
 	if err != nil {
 		return "", err
@@ -592,16 +611,16 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var shortUrl struct {
-		Url string `json:"short_url"`
+	var shortURL struct {
+		URL string `json:"short_url"`
 	}
-	if err := json.Unmarshal(reply, &shortUrl); err != nil {
+	if err := json.Unmarshal(reply, &shortURL); err != nil {
 		return "", err
 	}
-	return shortUrl.Url, nil
+	return shortURL.URL, nil
 }
 
-// Custom menu
+// CreateMenu used to create custom menu.
 func (wx *Weixin) CreateMenu(menu *Menu) error {
 	data, err := marshal(menu)
 	if err != nil {
@@ -611,6 +630,7 @@ func (wx *Weixin) CreateMenu(menu *Menu) error {
 	return err
 }
 
+// GetMenu used to get menu.
 func (wx *Weixin) GetMenu() (*Menu, error) {
 	reply, err := sendGetRequest(weixinHost+"/menu/get?access_token=", wx.tokenChan)
 	if err != nil {
@@ -625,19 +645,20 @@ func (wx *Weixin) GetMenu() (*Menu, error) {
 	return result.MenuCtx, nil
 }
 
+// DeleteMenu used to delete menu.
 func (wx *Weixin) DeleteMenu() error {
 	_, err := sendGetRequest(weixinHost+"/menu/delete?access_token=", wx.tokenChan)
 	return err
 }
 
-// Template
+// SetTemplateIndustry used to set template industry.
 func (wx *Weixin) SetTemplateIndustry(id1 string, id2 string) error {
 	var industry struct {
-		Id1 string `json:"industry_id1,omitempty"`
-		Id2 string `json:"industry_id2,omitempty"`
+		ID1 string `json:"industry_id1,omitempty"`
+		ID2 string `json:"industry_id2,omitempty"`
 	}
-	industry.Id1 = id1
-	industry.Id2 = id2
+	industry.ID1 = id1
+	industry.ID2 = id2
 	data, err := marshal(industry)
 	if err != nil {
 		return err
@@ -646,6 +667,7 @@ func (wx *Weixin) SetTemplateIndustry(id1 string, id2 string) error {
 	return err
 }
 
+// AddTemplate used to add template.
 func (wx *Weixin) AddTemplate(shortid string) (string, error) {
 	var request struct {
 		Shortid string `json:"template_id_short,omitempty"`
@@ -659,25 +681,26 @@ func (wx *Weixin) AddTemplate(shortid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var templateId struct {
-		Id string `json:"template_id,omitempty"`
+	var templateID struct {
+		ID string `json:"template_id,omitempty"`
 	}
-	if err := json.Unmarshal(reply, &templateId); err != nil {
+	if err := json.Unmarshal(reply, &templateID); err != nil {
 		return "", err
 	}
-	return templateId.Id, nil
+	return templateID.ID, nil
 }
 
+// PostTemplateMessage used to post template message.
 func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url string, data TmplData) (int32, error) {
 	var msg struct {
 		ToUser     string   `json:"touser"`
-		TemplateId string   `json:"template_id"`
-		Url        string   `json:"url,omitempty"`
+		TemplateID string   `json:"template_id"`
+		URL        string   `json:"url,omitempty"`
 		Data       TmplData `json:"data,omitempty"`
 	}
 	msg.ToUser = touser
-	msg.TemplateId = templateid
-	msg.Url = url
+	msg.TemplateID = templateid
+	msg.URL = url
 	msg.Data = data
 	msgStr, err := marshal(msg)
 	if err != nil {
@@ -688,12 +711,12 @@ func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url stri
 		return 0, err
 	}
 	var resp struct {
-		MsgId int32 `json:"msgid,omitempty"`
+		MsgID int32 `json:"msgid,omitempty"`
 	}
 	if err := json.Unmarshal(reply, &resp); err != nil {
 		return 0, err
 	}
-	return resp.MsgId, nil
+	return resp.MsgID, nil
 }
 
 // PostTemplateMessageMiniProgram 兼容模板消息跳转小程序
@@ -707,22 +730,22 @@ func (wx *Weixin) PostTemplateMessageMiniProgram(msg *TmplMsg) (int64, error) {
 		return 0, err
 	}
 	var resp struct {
-		MsgId int64 `json:"msgid,omitempty"`
+		MsgID int64 `json:"msgid,omitempty"`
 	}
 	if err := json.Unmarshal(reply, &resp); err != nil {
 		return 0, err
 	}
-	return resp.MsgId, nil
+	return resp.MsgID, nil
 }
 
-// Create redirect url
+// CreateRedirectURL used to create redirect url
 func (wx *Weixin) CreateRedirectURL(urlStr string, scope string, state string) string {
-	return fmt.Sprintf(weixinRedirectURL, wx.appId, url.QueryEscape(urlStr), scope, state)
+	return fmt.Sprintf(weixinRedirectURL, wx.appID, url.QueryEscape(urlStr), scope, state)
 }
 
-// Get open id
+// GetUserAccessToken used to get open id
 func (wx *Weixin) GetUserAccessToken(code string) (*UserAccessToken, error) {
-	resp, err := http.Get(fmt.Sprintf(weixinUserAccessTokenURL, wx.appId, wx.appSecret, code))
+	resp, err := http.Get(fmt.Sprintf(weixinUserAccessTokenURL, wx.appID, wx.appSecret, code))
 	if err != nil {
 		return nil, err
 	}
@@ -738,7 +761,7 @@ func (wx *Weixin) GetUserAccessToken(code string) (*UserAccessToken, error) {
 	return &res, nil
 }
 
-// Get user info
+// GetUserInfo used to get user info
 func (wx *Weixin) GetUserInfo(openid string) (*UserInfo, error) {
 	reply, err := sendGetRequest(fmt.Sprintf("%s?openid=%s&lang=zh_CN&access_token=", weixinUserInfo, openid), wx.tokenChan)
 	if err != nil {
@@ -751,7 +774,8 @@ func (wx *Weixin) GetUserInfo(openid string) (*UserInfo, error) {
 	return &result, nil
 }
 
-func (wx *Weixin) GetJsApiTicket() (string, error) {
+// GetJsAPITicket used to get js api ticket.
+func (wx *Weixin) GetJsAPITicket() (string, error) {
 	for i := 0; i < retryMaxN; i++ {
 		ticket := <-wx.ticketChan
 		if time.Since(ticket.expires).Seconds() < 0 {
@@ -761,25 +785,26 @@ func (wx *Weixin) GetJsApiTicket() (string, error) {
 	return "", errors.New("Get JsApi Ticket Timeout")
 }
 
+// JsSignature used to sign js url.
 func (wx *Weixin) JsSignature(url string, timestamp int64, noncestr string) (string, error) {
-	ticket, err := wx.GetJsApiTicket()
+	ticket, err := wx.GetJsAPITicket()
 	if err != nil {
 		return "", err
 	}
 	h := sha1.New()
-	h.Write([]byte(fmt.Sprintf("jsapi_ticket=%s&noncestr=%s&timestamp=%d&url=%s",
+	h.Write([]byte(fmt.Sprintf("jsapi_ticket=%s&noncestr=%s&timestamp=%d&url=%s", // nolint
 		ticket, noncestr, timestamp, url)))
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// Create handler func
+// CreateHandlerFunc used to create handler function.
 func (wx *Weixin) CreateHandlerFunc(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		wx.ServeHTTP(w, r)
 	}
 }
 
-// Process weixin request and send response.
+// ServeHTTP used to process weixin request and send response.
 func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !checkSignature(wx.token, w, r) {
 		http.Error(w, "", http.StatusUnauthorized)
@@ -787,7 +812,7 @@ func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Verify request
 	if r.Method == "GET" {
-		fmt.Fprintf(w, r.FormValue("echostr"))
+		fmt.Fprintf(w, r.FormValue("echostr")) // nolint
 		return
 	}
 	// Process message
@@ -839,10 +864,10 @@ func marshal(v interface{}) ([]byte, error) {
 }
 
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
-	r.ParseForm()
-	var signature string = r.FormValue("signature")
-	var timestamp string = r.FormValue("timestamp")
-	var nonce string = r.FormValue("nonce")
+	r.ParseForm() // nolint
+	signature := r.FormValue("signature")
+	timestamp := r.FormValue("timestamp")
+	nonce := r.FormValue("nonce")
 	strs := sort.StringSlice{t, timestamp, nonce}
 	sort.Strings(strs)
 	var str string
@@ -850,7 +875,7 @@ func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
 		str += s
 	}
 	h := sha1.New()
-	h.Write([]byte(str))
+	h.Write([]byte(str)) // nolint
 	return fmt.Sprintf("%x", h.Sum(nil)) == signature
 }
 
@@ -879,7 +904,7 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 	return "", 0
 }
 
-func getJsApiTicket(c chan accessToken) (*jsApiTicket, error) {
+func getJsAPITicket(c chan accessToken) (*jsAPITicket, error) {
 	reply, err := sendGetRequest(weixinJsApiTicketURL+"?type=jsapi&access_token=", c)
 	if err != nil {
 		return nil, err
@@ -891,7 +916,7 @@ func getJsApiTicket(c chan accessToken) (*jsApiTicket, error) {
 	if err := json.Unmarshal(reply, &res); err != nil {
 		return nil, err
 	}
-	var ticket jsApiTicket
+	var ticket jsAPITicket
 	ticket.ticket = res.Ticket
 	ticket.expires = time.Now().Add(time.Duration(res.ExpiresIn * 1000 * 1000 * 1000))
 	return &ticket, nil
@@ -912,12 +937,12 @@ func (wx *Weixin) createAccessToken(c chan accessToken, appid string, secret str
 	}
 }
 
-func createJsApiTicket(cin chan accessToken, c chan jsApiTicket) {
-	ticket := jsApiTicket{"", time.Now()}
+func createJsAPITicket(cin chan accessToken, c chan jsAPITicket) {
+	ticket := jsAPITicket{"", time.Now()}
 	c <- ticket
 	for {
 		if time.Since(ticket.expires).Seconds() >= 0 {
-			t, err := getJsApiTicket(cin)
+			t, err := getJsAPITicket(cin)
 			if err == nil {
 				ticket = *t
 			}
@@ -949,7 +974,7 @@ func sendGetRequest(reqURL string, c chan accessToken) ([]byte, error) {
 			case 42001: // access_token timeout and retry
 				continue
 			default:
-				return nil, errors.New(fmt.Sprintf("WeiXin send get request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+				return nil, fmt.Errorf("WeiXin send get request reply[%d]: %s", result.ErrorCode, result.ErrorMessage)
 			}
 		}
 	}
@@ -979,7 +1004,7 @@ func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error)
 			case 42001: // access_token timeout and retry
 				continue
 			default:
-				return nil, errors.New(fmt.Sprintf("WeiXin send post request reply[%d]: %s", result.ErrorCode, result.ErrorMessage))
+				return nil, fmt.Errorf("WeiXin send post request reply[%d]: %s", result.ErrorCode, result.ErrorMessage)
 			}
 		}
 	}
@@ -995,6 +1020,7 @@ func postMessage(c chan accessToken, msg interface{}) error {
 	return err
 }
 
+// nolint: gocyclo
 func uploadMedia(c chan accessToken, mediaType string, filename string, reader io.Reader) (string, error) {
 	reqURL := weixinFileURL + "/upload?type=" + mediaType + "&access_token="
 	for i := 0; i < retryMaxN; i++ {
@@ -1010,7 +1036,7 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 				return "", err
 			}
 			contentType := bodyWriter.FormDataContentType()
-			bodyWriter.Close()
+			bodyWriter.Close() // nolint
 			r, err := http.Post(reqURL+token.token, contentType, bodyBuf)
 			if err != nil {
 				return "", err
@@ -1023,7 +1049,7 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 			var result struct {
 				response
 				Type      string `json:"type"`
-				MediaId   string `json:"media_id"`
+				MediaID   string `json:"media_id"`
 				CreatedAt int64  `json:"created_at"`
 			}
 			err = json.Unmarshal(reply, &result)
@@ -1032,19 +1058,19 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 			}
 			switch result.ErrorCode {
 			case 0:
-				return result.MediaId, nil
+				return result.MediaID, nil
 			case 42001: // access_token timeout and retry
 				continue
 			default:
-				return "", errors.New(fmt.Sprintf("WeiXin upload[%d]: %s", result.ErrorCode, result.ErrorMessage))
+				return "", fmt.Errorf("WeiXin upload[%d]: %s", result.ErrorCode, result.ErrorMessage)
 			}
 		}
 	}
 	return "", errors.New("WeiXin upload media too many times")
 }
 
-func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
-	reqURL := weixinFileURL + "/get?media_id=" + mediaId + "&access_token="
+func downloadMedia(c chan accessToken, mediaID string, writer io.Writer) error {
+	reqURL := weixinFileURL + "/get?media_id=" + mediaID + "&access_token="
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
 		if time.Since(token.expires).Seconds() < 0 {
@@ -1054,7 +1080,7 @@ func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
 			}
 			defer r.Body.Close()
 			if r.Header.Get("Content-Type") != "text/plain" {
-				_, err := io.Copy(writer, r.Body)
+				_, err = io.Copy(writer, r.Body)
 				return err
 			}
 			reply, err := ioutil.ReadAll(r.Body)
@@ -1071,97 +1097,97 @@ func downloadMedia(c chan accessToken, mediaId string, writer io.Writer) error {
 			case 42001: // access_token timeout and retry
 				continue
 			default:
-				return errors.New(fmt.Sprintf("WeiXin download[%d]: %s", result.ErrorCode, result.ErrorMessage))
+				return fmt.Errorf("WeiXin download[%d]: %s", result.ErrorCode, result.ErrorMessage)
 			}
 		}
 	}
 	return errors.New("WeiXin download media too many times")
 }
 
-// Format reply message header
+// Format reply message header.
 func (w responseWriter) replyHeader() string {
 	return fmt.Sprintf(replyHeader, w.toUserName, w.fromUserName, time.Now().Unix())
 }
 
-// Return weixin instance
+// Return weixin instance.
 func (w responseWriter) GetWeixin() *Weixin {
 	return w.wx
 }
 
-// Return user data
+// Return user data.
 func (w responseWriter) GetUserData() interface{} {
 	return w.wx.userData
 }
 
-// Reply empty message
+// ReplyOK used to reply empty message.
 func (w responseWriter) ReplyOK() {
-	w.writer.Write([]byte("success"))
+	w.writer.Write([]byte("success")) // nolint
 }
 
-// Reply text message
+// ReplyText used to reply text message.
 func (w responseWriter) ReplyText(text string) {
 	msg := fmt.Sprintf(replyText, w.replyHeader(), text)
-	w.writer.Write([]byte(msg))
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Reply image message
-func (w responseWriter) ReplyImage(mediaId string) {
-	msg := fmt.Sprintf(replyImage, w.replyHeader(), mediaId)
-	w.writer.Write([]byte(msg))
+// ReplyImage used to reply image message.
+func (w responseWriter) ReplyImage(mediaID string) {
+	msg := fmt.Sprintf(replyImage, w.replyHeader(), mediaID)
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Reply voice message
-func (w responseWriter) ReplyVoice(mediaId string) {
-	msg := fmt.Sprintf(replyVoice, w.replyHeader(), mediaId)
-	w.writer.Write([]byte(msg))
+// ReplyVoice used to reply voice message.
+func (w responseWriter) ReplyVoice(mediaID string) {
+	msg := fmt.Sprintf(replyVoice, w.replyHeader(), mediaID)
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Reply video message
-func (w responseWriter) ReplyVideo(mediaId string, title string, description string) {
-	msg := fmt.Sprintf(replyVideo, w.replyHeader(), mediaId, title, description)
-	w.writer.Write([]byte(msg))
+// ReplyVideo used to reply video message
+func (w responseWriter) ReplyVideo(mediaID string, title string, description string) {
+	msg := fmt.Sprintf(replyVideo, w.replyHeader(), mediaID, title, description)
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Reply music message
+// ReplyMusic used to reply music message
 func (w responseWriter) ReplyMusic(m *Music) {
 	msg := fmt.Sprintf(replyMusic, w.replyHeader(), m.Title, m.Description, m.MusicUrl, m.HQMusicUrl, m.ThumbMediaId)
-	w.writer.Write([]byte(msg))
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Reply news message (max 10 news)
+// ReplyNews used to reply news message (max 10 news)
 func (w responseWriter) ReplyNews(articles []Article) {
 	var ctx string
 	for _, article := range articles {
 		ctx += fmt.Sprintf(replyArticle, article.Title, article.Description, article.PicUrl, article.Url)
 	}
 	msg := fmt.Sprintf(replyNews, w.replyHeader(), len(articles), ctx)
-	w.writer.Write([]byte(msg))
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Transfer customer service
-func (w responseWriter) TransferCustomerService(serviceId string) {
-	msg := fmt.Sprintf(transferCustomerService, serviceId, w.fromUserName, time.Now().Unix())
-	w.writer.Write([]byte(msg))
+// TransferCustomerService used to tTransfer customer service
+func (w responseWriter) TransferCustomerService(serviceID string) {
+	msg := fmt.Sprintf(transferCustomerService, serviceID, w.fromUserName, time.Now().Unix())
+	w.writer.Write([]byte(msg)) // nolint
 }
 
-// Post text message
+// PostText used to Post text message
 func (w responseWriter) PostText(text string) error {
 	return w.wx.PostText(w.toUserName, text)
 }
 
 // Post image message
-func (w responseWriter) PostImage(mediaId string) error {
-	return w.wx.PostImage(w.toUserName, mediaId)
+func (w responseWriter) PostImage(mediaID string) error {
+	return w.wx.PostImage(w.toUserName, mediaID)
 }
 
 // Post voice message
-func (w responseWriter) PostVoice(mediaId string) error {
-	return w.wx.PostVoice(w.toUserName, mediaId)
+func (w responseWriter) PostVoice(mediaID string) error {
+	return w.wx.PostVoice(w.toUserName, mediaID)
 }
 
 // Post video message
-func (w responseWriter) PostVideo(mediaId string, title string, desc string) error {
-	return w.wx.PostVideo(w.toUserName, mediaId, title, desc)
+func (w responseWriter) PostVideo(mediaID string, title string, desc string) error {
+	return w.wx.PostVideo(w.toUserName, mediaID, title, desc)
 }
 
 // Post music message
@@ -1185,8 +1211,8 @@ func (w responseWriter) UploadMediaFromFile(mediaType string, filepath string) (
 }
 
 // Download media and save to local file
-func (w responseWriter) DownloadMediaToFile(mediaId string, filepath string) error {
-	return w.wx.DownloadMediaToFile(mediaId, filepath)
+func (w responseWriter) DownloadMediaToFile(mediaID string, filepath string) error {
+	return w.wx.DownloadMediaToFile(mediaID, filepath)
 }
 
 // Upload media with reader
@@ -1195,6 +1221,6 @@ func (w responseWriter) UploadMedia(mediaType string, filename string, reader io
 }
 
 // Download media with writer
-func (w responseWriter) DownloadMedia(mediaId string, writer io.Writer) error {
-	return w.wx.DownloadMedia(mediaId, writer)
+func (w responseWriter) DownloadMedia(mediaID string, writer io.Writer) error {
+	return w.wx.DownloadMedia(mediaID, writer)
 }
