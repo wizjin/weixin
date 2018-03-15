@@ -47,6 +47,8 @@ func main() {
 	// 如果仅使用接收/回复消息，则可以不填写，使用下面语句
 	// mux := weixin.New("my-token", "", "")
 	mux := weixin.New("my-token", "app-id", "app-secret")
+	// 设置AES密钥，如果不使用AES可以省略这行代码
+	mux.SetEncodingAESKey("encoding-AES-key")
 	// 注册文本消息的处理函数
 	mux.HandleFunc(weixin.MsgTypeText, Echo)
 	// 注册关注事件的处理函数

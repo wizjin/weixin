@@ -3,7 +3,11 @@ package weixin
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha1"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -18,6 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -117,6 +122,7 @@ type MessageHeader struct {
 	FromUserName string
 	CreateTime   int
 	MsgType      string
+	Encrypt      string
 }
 
 // Request is weixin event request.
@@ -273,6 +279,7 @@ type ResponseWriter interface {
 	GetWeixin() *Weixin
 	GetUserData() interface{}
 	// Reply message
+	replyMsg(msg string)
 	ReplyOK()
 	ReplyText(text string)
 	ReplyImage(mediaId string)
@@ -328,14 +335,15 @@ type jsAPITicket struct {
 
 // Weixin instance
 type Weixin struct {
-	token        string
-	routes       []*route
-	tokenChan    chan accessToken
-	ticketChan   chan jsAPITicket
-	userData     interface{}
-	appID        string
-	appSecret    string
-	refreshToken int32
+	token          string
+	routes         []*route
+	tokenChan      chan accessToken
+	ticketChan     chan jsAPITicket
+	userData       interface{}
+	appID          string
+	appSecret      string
+	refreshToken   int32
+	encodingAESKey []byte
 }
 
 // ToURL convert qr scene to url.
@@ -350,6 +358,7 @@ func New(token string, appid string, secret string) *Weixin {
 	wx.appID = appid
 	wx.appSecret = secret
 	wx.refreshToken = 0
+	wx.encodingAESKey = []byte{}
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan accessToken)
 		go wx.createAccessToken(wx.tokenChan, appid, secret)
@@ -364,6 +373,16 @@ func NewWithUserData(token string, appid string, secret string, userData interfa
 	wx := New(token, appid, secret)
 	wx.userData = userData
 	return wx
+}
+
+// SetEncodingAESKey set AES key
+func (wx *Weixin) SetEncodingAESKey(key string) error {
+	k, err := base64.StdEncoding.DecodeString(key + "=")
+	if err != nil {
+		return err
+	}
+	wx.encodingAESKey = k
+	return nil
 }
 
 // GetAppId retrun app id.
@@ -825,9 +844,50 @@ func (wx *Weixin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err := xml.Unmarshal(data, &msg); err != nil {
 			log.Println("Weixin parse message failed:", err)
 			http.Error(w, "", http.StatusBadRequest)
-		} else {
-			wx.routeRequest(w, &msg)
+			return
 		}
+		if len(wx.encodingAESKey) > 0 && len(msg.Encrypt) > 0 {
+			// check encrypt
+			d, err := base64.StdEncoding.DecodeString(msg.Encrypt)
+			if err != nil {
+				log.Println("Weixin decode base64 message failed:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			if len(d) <= 20 {
+				log.Println("Weixin invalid aes message:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			// valid
+			strs := sort.StringSlice{wx.token, r.FormValue("timestamp"), r.FormValue("nonce"), msg.Encrypt}
+			sort.Strings(strs)
+			if fmt.Sprintf("%x", sha1.Sum([]byte(strings.Join(strs, "")))) != r.FormValue("msg_signature") {
+				log.Println("Weixin check message sign failed!")
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			// decode
+			key := wx.encodingAESKey
+			b, err := aes.NewCipher(key)
+			if err != nil {
+				log.Println("Weixin create cipher failed:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			bs := b.BlockSize()
+			bm := cipher.NewCBCDecrypter(b, key[:bs])
+			data = make([]byte, len(d))
+			bm.CryptBlocks(data, d)
+			data = fixPKCS7UnPadding(data)
+			len := binary.BigEndian.Uint32(data[16:20])
+			if err := xml.Unmarshal(data[20:(20+len)], &msg); err != nil {
+				log.Println("Weixin parse aes message failed:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+		}
+		wx.routeRequest(w, &msg)
 	}
 	return
 }
@@ -861,6 +921,12 @@ func marshal(v interface{}) ([]byte, error) {
 		data = bytes.Replace(data, []byte("\\u0026"), []byte("&"), -1)
 	}
 	return data, err
+}
+
+func fixPKCS7UnPadding(data []byte) []byte {
+	length := len(data)
+	unpadding := int(data[length-1])
+	return data[:(length - unpadding)]
 }
 
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
@@ -1119,39 +1185,39 @@ func (w responseWriter) GetUserData() interface{} {
 	return w.wx.userData
 }
 
+func (w responseWriter) replyMsg(msg string) {
+	w.writer.Write([]byte(msg))
+}
+
 // ReplyOK used to reply empty message.
 func (w responseWriter) ReplyOK() {
-	w.writer.Write([]byte("success")) // nolint
+	w.replyMsg("success")
 }
 
 // ReplyText used to reply text message.
 func (w responseWriter) ReplyText(text string) {
-	msg := fmt.Sprintf(replyText, w.replyHeader(), text)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyText, w.replyHeader(), text))
 }
 
 // ReplyImage used to reply image message.
 func (w responseWriter) ReplyImage(mediaID string) {
-	msg := fmt.Sprintf(replyImage, w.replyHeader(), mediaID)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyImage, w.replyHeader(), mediaID))
 }
 
 // ReplyVoice used to reply voice message.
 func (w responseWriter) ReplyVoice(mediaID string) {
-	msg := fmt.Sprintf(replyVoice, w.replyHeader(), mediaID)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyVoice, w.replyHeader(), mediaID))
 }
 
 // ReplyVideo used to reply video message
 func (w responseWriter) ReplyVideo(mediaID string, title string, description string) {
-	msg := fmt.Sprintf(replyVideo, w.replyHeader(), mediaID, title, description)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyVideo, w.replyHeader(), mediaID, title, description))
 }
 
 // ReplyMusic used to reply music message
 func (w responseWriter) ReplyMusic(m *Music) {
 	msg := fmt.Sprintf(replyMusic, w.replyHeader(), m.Title, m.Description, m.MusicUrl, m.HQMusicUrl, m.ThumbMediaId)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(msg)
 }
 
 // ReplyNews used to reply news message (max 10 news)
@@ -1161,13 +1227,13 @@ func (w responseWriter) ReplyNews(articles []Article) {
 		ctx += fmt.Sprintf(replyArticle, article.Title, article.Description, article.PicUrl, article.Url)
 	}
 	msg := fmt.Sprintf(replyNews, w.replyHeader(), len(articles), ctx)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(msg)
 }
 
 // TransferCustomerService used to tTransfer customer service
 func (w responseWriter) TransferCustomerService(serviceID string) {
 	msg := fmt.Sprintf(transferCustomerService, serviceID, w.fromUserName, time.Now().Unix())
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(msg)
 }
 
 // PostText used to Post text message
