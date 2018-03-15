@@ -388,6 +388,7 @@ This project is licensed under the MIT license, see [LICENSE](LICENSE).
 ### Version 0.5.4 - upcoming
 
 - 用户管理
+- 支持AES
 
 ### Version 0.5.3 - 2016/01/05
 
