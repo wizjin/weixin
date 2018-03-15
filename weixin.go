@@ -279,6 +279,7 @@ type ResponseWriter interface {
 	GetWeixin() *Weixin
 	GetUserData() interface{}
 	// Reply message
+	replyMsg(msg string)
 	ReplyOK()
 	ReplyText(text string)
 	ReplyImage(mediaId string)
@@ -922,6 +923,12 @@ func marshal(v interface{}) ([]byte, error) {
 	return data, err
 }
 
+func fixPKCS7UnPadding(data []byte) []byte {
+	length := len(data)
+	unpadding := int(data[length-1])
+	return data[:(length - unpadding)]
+}
+
 func checkSignature(t string, w http.ResponseWriter, r *http.Request) bool {
 	r.ParseForm() // nolint
 	signature := r.FormValue("signature")
@@ -1178,39 +1185,39 @@ func (w responseWriter) GetUserData() interface{} {
 	return w.wx.userData
 }
 
+func (w responseWriter) replyMsg(msg string) {
+	w.writer.Write([]byte(msg))
+}
+
 // ReplyOK used to reply empty message.
 func (w responseWriter) ReplyOK() {
-	w.writer.Write([]byte("success")) // nolint
+	w.replyMsg("success")
 }
 
 // ReplyText used to reply text message.
 func (w responseWriter) ReplyText(text string) {
-	msg := fmt.Sprintf(replyText, w.replyHeader(), text)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyText, w.replyHeader(), text))
 }
 
 // ReplyImage used to reply image message.
 func (w responseWriter) ReplyImage(mediaID string) {
-	msg := fmt.Sprintf(replyImage, w.replyHeader(), mediaID)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyImage, w.replyHeader(), mediaID))
 }
 
 // ReplyVoice used to reply voice message.
 func (w responseWriter) ReplyVoice(mediaID string) {
-	msg := fmt.Sprintf(replyVoice, w.replyHeader(), mediaID)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyVoice, w.replyHeader(), mediaID))
 }
 
 // ReplyVideo used to reply video message
 func (w responseWriter) ReplyVideo(mediaID string, title string, description string) {
-	msg := fmt.Sprintf(replyVideo, w.replyHeader(), mediaID, title, description)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(fmt.Sprintf(replyVideo, w.replyHeader(), mediaID, title, description))
 }
 
 // ReplyMusic used to reply music message
 func (w responseWriter) ReplyMusic(m *Music) {
 	msg := fmt.Sprintf(replyMusic, w.replyHeader(), m.Title, m.Description, m.MusicUrl, m.HQMusicUrl, m.ThumbMediaId)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(msg)
 }
 
 // ReplyNews used to reply news message (max 10 news)
@@ -1220,13 +1227,13 @@ func (w responseWriter) ReplyNews(articles []Article) {
 		ctx += fmt.Sprintf(replyArticle, article.Title, article.Description, article.PicUrl, article.Url)
 	}
 	msg := fmt.Sprintf(replyNews, w.replyHeader(), len(articles), ctx)
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(msg)
 }
 
 // TransferCustomerService used to tTransfer customer service
 func (w responseWriter) TransferCustomerService(serviceID string) {
 	msg := fmt.Sprintf(transferCustomerService, serviceID, w.fromUserName, time.Now().Unix())
-	w.writer.Write([]byte(msg)) // nolint
+	w.replyMsg(msg)
 }
 
 // PostText used to Post text message
@@ -1282,10 +1289,4 @@ func (w responseWriter) UploadMedia(mediaType string, filename string, reader io
 // Download media with writer
 func (w responseWriter) DownloadMedia(mediaID string, writer io.Writer) error {
 	return w.wx.DownloadMedia(mediaID, writer)
-}
-
-func fixPKCS7UnPadding(data []byte) []byte {
-	length := len(data)
-	unpadding := int(data[length-1])
-	return data[:(length - unpadding)]
 }
