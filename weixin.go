@@ -323,9 +323,10 @@ type route struct {
 	handler HandlerFunc
 }
 
-type accessToken struct {
-	token   string
-	expires time.Time
+// AccessToken define weixin access token.
+type AccessToken struct {
+	Token   string
+	Expires time.Time
 }
 
 type jsAPITicket struct {
@@ -337,7 +338,7 @@ type jsAPITicket struct {
 type Weixin struct {
 	token          string
 	routes         []*route
-	tokenChan      chan accessToken
+	tokenChan      chan AccessToken
 	ticketChan     chan jsAPITicket
 	userData       interface{}
 	appID          string
@@ -360,7 +361,7 @@ func New(token string, appid string, secret string) *Weixin {
 	wx.refreshToken = 0
 	wx.encodingAESKey = []byte{}
 	if len(appid) > 0 && len(secret) > 0 {
-		wx.tokenChan = make(chan accessToken)
+		wx.tokenChan = make(chan AccessToken)
 		go wx.createAccessToken(wx.tokenChan, appid, secret)
 		wx.ticketChan = make(chan jsAPITicket)
 		go createJsAPITicket(wx.tokenChan, wx.ticketChan)
@@ -399,6 +400,17 @@ func (wx *Weixin) GetAppSecret() string {
 func (wx *Weixin) RefreshAccessToken() {
 	atomic.StoreInt32(&wx.refreshToken, 1)
 	<-wx.tokenChan
+}
+
+// GetAccessToken read access token.
+func (wx *Weixin) GetAccessToken() AccessToken {
+	for i := 0; i < retryMaxN; i++ {
+		token := <-wx.tokenChan
+		if time.Since(token.Expires).Seconds() < 0 {
+			return token
+		}
+	}
+	return AccessToken{}
 }
 
 // HandleFunc used to register request callback.
@@ -970,7 +982,7 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 	return "", 0
 }
 
-func getJsAPITicket(c chan accessToken) (*jsAPITicket, error) {
+func getJsAPITicket(c chan AccessToken) (*jsAPITicket, error) {
 	reply, err := sendGetRequest(weixinJsApiTicketURL+"?type=jsapi&access_token=", c)
 	if err != nil {
 		return nil, err
@@ -989,21 +1001,21 @@ func getJsAPITicket(c chan accessToken) (*jsAPITicket, error) {
 
 }
 
-func (wx *Weixin) createAccessToken(c chan accessToken, appid string, secret string) {
-	token := accessToken{"", time.Now()}
+func (wx *Weixin) createAccessToken(c chan AccessToken, appid string, secret string) {
+	token := AccessToken{"", time.Now()}
 	c <- token
 	for {
 		swapped := atomic.CompareAndSwapInt32(&wx.refreshToken, 1, 0)
-		if swapped || time.Since(token.expires).Seconds() >= 0 {
+		if swapped || time.Since(token.Expires).Seconds() >= 0 {
 			var expires time.Duration
-			token.token, expires = authAccessToken(appid, secret)
-			token.expires = time.Now().Add(expires)
+			token.Token, expires = authAccessToken(appid, secret)
+			token.Expires = time.Now().Add(expires)
 		}
 		c <- token
 	}
 }
 
-func createJsAPITicket(cin chan accessToken, c chan jsAPITicket) {
+func createJsAPITicket(cin chan AccessToken, c chan jsAPITicket) {
 	ticket := jsAPITicket{"", time.Now()}
 	c <- ticket
 	for {
@@ -1017,11 +1029,11 @@ func createJsAPITicket(cin chan accessToken, c chan jsAPITicket) {
 	}
 }
 
-func sendGetRequest(reqURL string, c chan accessToken) ([]byte, error) {
+func sendGetRequest(reqURL string, c chan AccessToken) ([]byte, error) {
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
-		if time.Since(token.expires).Seconds() < 0 {
-			r, err := http.Get(reqURL + token.token)
+		if time.Since(token.Expires).Seconds() < 0 {
+			r, err := http.Get(reqURL + token.Token)
 			if err != nil {
 				return nil, err
 			}
@@ -1047,11 +1059,11 @@ func sendGetRequest(reqURL string, c chan accessToken) ([]byte, error) {
 	return nil, errors.New("WeiXin post request too many times:" + reqURL)
 }
 
-func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error) {
+func postRequest(reqURL string, c chan AccessToken, data []byte) ([]byte, error) {
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
-		if time.Since(token.expires).Seconds() < 0 {
-			r, err := http.Post(reqURL+token.token, "application/json; charset=utf-8", bytes.NewReader(data))
+		if time.Since(token.Expires).Seconds() < 0 {
+			r, err := http.Post(reqURL+token.Token, "application/json; charset=utf-8", bytes.NewReader(data))
 			if err != nil {
 				return nil, err
 			}
@@ -1077,7 +1089,7 @@ func postRequest(reqURL string, c chan accessToken, data []byte) ([]byte, error)
 	return nil, errors.New("WeiXin post request too many times:" + reqURL)
 }
 
-func postMessage(c chan accessToken, msg interface{}) error {
+func postMessage(c chan AccessToken, msg interface{}) error {
 	data, err := marshal(msg)
 	if err != nil {
 		return err
@@ -1087,11 +1099,11 @@ func postMessage(c chan accessToken, msg interface{}) error {
 }
 
 // nolint: gocyclo
-func uploadMedia(c chan accessToken, mediaType string, filename string, reader io.Reader) (string, error) {
+func uploadMedia(c chan AccessToken, mediaType string, filename string, reader io.Reader) (string, error) {
 	reqURL := weixinFileURL + "/upload?type=" + mediaType + "&access_token="
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
-		if time.Since(token.expires).Seconds() < 0 {
+		if time.Since(token.Expires).Seconds() < 0 {
 			bodyBuf := &bytes.Buffer{}
 			bodyWriter := multipart.NewWriter(bodyBuf)
 			fileWriter, err := bodyWriter.CreateFormFile("filename", filename)
@@ -1103,7 +1115,7 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 			}
 			contentType := bodyWriter.FormDataContentType()
 			bodyWriter.Close() // nolint
-			r, err := http.Post(reqURL+token.token, contentType, bodyBuf)
+			r, err := http.Post(reqURL+token.Token, contentType, bodyBuf)
 			if err != nil {
 				return "", err
 			}
@@ -1135,12 +1147,12 @@ func uploadMedia(c chan accessToken, mediaType string, filename string, reader i
 	return "", errors.New("WeiXin upload media too many times")
 }
 
-func downloadMedia(c chan accessToken, mediaID string, writer io.Writer) error {
+func downloadMedia(c chan AccessToken, mediaID string, writer io.Writer) error {
 	reqURL := weixinFileURL + "/get?media_id=" + mediaID + "&access_token="
 	for i := 0; i < retryMaxN; i++ {
 		token := <-c
-		if time.Since(token.expires).Seconds() < 0 {
-			r, err := http.Get(reqURL + token.token)
+		if time.Since(token.Expires).Seconds() < 0 {
+			r, err := http.Get(reqURL + token.Token)
 			if err != nil {
 				return err
 			}

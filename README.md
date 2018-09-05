@@ -188,6 +188,8 @@ func ReciveImageMessage(w weixin.ResponseWriter, r *weixin.Request) {
 
 ### 获取微信服务器IP地址
 
+示例，获取微信服务器IP地址列表
+
 ```Go
 func GetIpList(wx *weixin.Weixin) {
 	ips, err := wx.GetIpList()
@@ -195,6 +197,21 @@ func GetIpList(wx *weixin.Weixin) {
 		fmt.Println(err)
 	} else {
 		fmt.Println(ips)	// Ip地址列表
+	}
+}
+```
+
+### 获取AccessToken
+
+示例，获取AccessToken
+
+```Go
+func GetAccessToken(wx *weixin.Weixin) {
+	a := wx.GetAccessToken
+	if time.Until(token.Expires).Seconds() > 0 {
+		fmt.Println(a.Token)	// AccessToken
+	} else {
+		fmt.Println("Timeout")	// 超时
 	}
 }
 ```
