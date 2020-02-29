@@ -295,7 +295,7 @@ type ResponseWriter interface {
 	PostVideo(mediaId string, title string, description string) error
 	PostMusic(music *Music) error
 	PostNews(articles []Article) error
-	PostTemplateMessage(templateid string, url string, data TmplData) (int32, error)
+	PostTemplateMessage(templateid string, url string, data TmplData, miniprogram TmplMiniProgram) (int64, error)
 	// Media operator
 	UploadMediaFromFile(mediaType string, filepath string) (string, error)
 	DownloadMediaToFile(mediaId string, filepath string) error
@@ -722,17 +722,19 @@ func (wx *Weixin) AddTemplate(shortid string) (string, error) {
 }
 
 // PostTemplateMessage used to post template message.
-func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url string, data TmplData) (int32, error) {
+func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url string, data TmplData, miniprogram TmplMiniProgram) (int64, error) {
 	var msg struct {
-		ToUser     string   `json:"touser"`
-		TemplateID string   `json:"template_id"`
-		URL        string   `json:"url,omitempty"`
-		Data       TmplData `json:"data,omitempty"`
+		ToUser      string          `json:"touser"`
+		TemplateID  string          `json:"template_id"`
+		URL         string          `json:"url,omitempty"`
+		Data        TmplData        `json:"data,omitempty"`
+		MiniProgram TmplMiniProgram `json:"miniprogram,omitempty"`
 	}
 	msg.ToUser = touser
 	msg.TemplateID = templateid
 	msg.URL = url
 	msg.Data = data
+	msg.MiniProgram = miniprogram
 	msgStr, err := marshal(msg)
 	if err != nil {
 		return 0, err
@@ -742,7 +744,7 @@ func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url stri
 		return 0, err
 	}
 	var resp struct {
-		MsgID int32 `json:"msgid,omitempty"`
+		MsgID int64 `json:"msgid,omitempty"`
 	}
 	if err := json.Unmarshal(reply, &resp); err != nil {
 		return 0, err
@@ -1279,8 +1281,8 @@ func (w responseWriter) PostNews(articles []Article) error {
 }
 
 // Post template message
-func (w responseWriter) PostTemplateMessage(templateid string, url string, data TmplData) (int32, error) {
-	return w.wx.PostTemplateMessage(w.toUserName, templateid, url, data)
+func (w responseWriter) PostTemplateMessage(templateid string, url string, data TmplData, miniprogram TmplMiniProgram) (int64, error) {
+	return w.wx.PostTemplateMessage(w.toUserName, templateid, url, data, miniprogram)
 }
 
 // Upload media from local file
