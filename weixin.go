@@ -114,6 +114,10 @@ const (
 	requestQRSceneStr      = `{"expire_seconds":%d,"action_name":"QR_STR_SCENE","action_info":{"scene":{"scene_str":"%s"}}}`
 	requestQRLimitScene    = `{"action_name":"QR_LIMIT_SCENE","action_info":{"scene":{"scene_id":%d}}}`
 	requestQRLimitSceneStr = `{"action_name":"QR_LIMIT_STR_SCENE","action_info":{"scene":{"scene_str":"%s"}}}`
+
+	// cache key
+	cacheKeyWeixinAccesToken  = "weixin:%s:accesstoken"
+	cacheKeyWeixinJSAPITicket = "weixin:%s:jsapiticket"
 )
 
 // MessageHeader is the header of common message.
@@ -345,6 +349,7 @@ type Weixin struct {
 	appSecret      string
 	refreshToken   int32
 	encodingAESKey []byte
+	cacheStore     CacheStore
 }
 
 // ToURL convert qr scene to url.
@@ -353,25 +358,31 @@ func (qr *QRScene) ToURL() string {
 }
 
 // New create a Weixin instance.
-func New(token string, appid string, secret string) *Weixin {
+func New(token string, appid string, secret string, cacheStore CacheStore) *Weixin {
 	wx := &Weixin{}
 	wx.token = token
 	wx.appID = appid
 	wx.appSecret = secret
 	wx.refreshToken = 0
 	wx.encodingAESKey = []byte{}
+
+	if cacheStore == nil {
+		cacheStore = NewMemoryCacheStore()
+	}
+	wx.cacheStore = cacheStore
+
 	if len(appid) > 0 && len(secret) > 0 {
 		wx.tokenChan = make(chan AccessToken)
 		go wx.createAccessToken(wx.tokenChan, appid, secret)
 		wx.ticketChan = make(chan jsAPITicket)
-		go createJsAPITicket(wx.tokenChan, wx.ticketChan)
+		go wx.createJsAPITicket(wx.tokenChan, wx.ticketChan)
 	}
 	return wx
 }
 
 // NewWithUserData create data with userdata.
 func NewWithUserData(token string, appid string, secret string, userData interface{}) *Weixin {
-	wx := New(token, appid, secret)
+	wx := New(token, appid, secret, nil)
 	wx.userData = userData
 	return wx
 }
@@ -435,7 +446,7 @@ func (wx *Weixin) PostText(touser string, text string) error {
 	msg.ToUser = touser
 	msg.MsgType = "text"
 	msg.Text.Content = text
-	return postMessage(wx.tokenChan, &msg)
+	return wx.postMessage(&msg)
 }
 
 // PostImage used to post image message.
@@ -450,7 +461,7 @@ func (wx *Weixin) PostImage(touser string, mediaID string) error {
 	msg.ToUser = touser
 	msg.MsgType = "image"
 	msg.Image.MediaID = mediaID
-	return postMessage(wx.tokenChan, &msg)
+	return wx.postMessage(&msg)
 }
 
 // PostVoice used to post voice message.
@@ -465,7 +476,7 @@ func (wx *Weixin) PostVoice(touser string, mediaID string) error {
 	msg.ToUser = touser
 	msg.MsgType = "voice"
 	msg.Voice.MediaID = mediaID
-	return postMessage(wx.tokenChan, &msg)
+	return wx.postMessage(&msg)
 }
 
 // PostVideo used to post video message.
@@ -484,7 +495,7 @@ func (wx *Weixin) PostVideo(touser string, m string, t string, d string) error {
 	msg.Video.MediaID = m
 	msg.Video.Title = t
 	msg.Video.Description = d
-	return postMessage(wx.tokenChan, &msg)
+	return wx.postMessage(&msg)
 }
 
 // PostMusic used to post music message.
@@ -497,7 +508,7 @@ func (wx *Weixin) PostMusic(touser string, music *Music) error {
 	msg.ToUser = touser
 	msg.MsgType = "video"
 	msg.Music = music
-	return postMessage(wx.tokenChan, &msg)
+	return wx.postMessage(&msg)
 }
 
 // PostNews used to post news message.
@@ -512,7 +523,7 @@ func (wx *Weixin) PostNews(touser string, articles []Article) error {
 	msg.ToUser = touser
 	msg.MsgType = "news"
 	msg.News.Articles = articles
-	return postMessage(wx.tokenChan, &msg)
+	return wx.postMessage(&msg)
 }
 
 // UploadMediaFromFile used to upload media from local file.
@@ -537,17 +548,17 @@ func (wx *Weixin) DownloadMediaToFile(mediaID string, fp string) error {
 
 // UploadMedia used to upload media with media.
 func (wx *Weixin) UploadMedia(mediaType string, filename string, reader io.Reader) (string, error) {
-	return uploadMedia(wx.tokenChan, mediaType, filename, reader)
+	return wx.uploadMedia(mediaType, filename, reader)
 }
 
 // DownloadMedia used to download media with media.
 func (wx *Weixin) DownloadMedia(mediaID string, writer io.Writer) error {
-	return downloadMedia(wx.tokenChan, mediaID, writer)
+	return wx.downloadMedia(mediaID, writer)
 }
 
 // BatchGetMaterial used to batch get Material.
 func (wx *Weixin) BatchGetMaterial(materialType string, offset int, count int) (*Materials, error) {
-	reply, err := postRequest(weixinMaterialURL+"/batchget_material?access_token=", wx.tokenChan,
+	reply, err := wx.postRequest(weixinMaterialURL+"/batchget_material?access_token=",
 		[]byte(fmt.Sprintf(requestMaterial, materialType, offset, count)))
 	if err != nil {
 		return nil, err
@@ -561,7 +572,7 @@ func (wx *Weixin) BatchGetMaterial(materialType string, offset int, count int) (
 
 // GetIpList used to get ip list.
 func (wx *Weixin) GetIpList() ([]string, error) { // nolint
-	reply, err := sendGetRequest(weixinHost+"/getcallbackip?access_token=", wx.tokenChan)
+	reply, err := wx.sendGetRequest(weixinHost + "/getcallbackip?access_token=")
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +587,7 @@ func (wx *Weixin) GetIpList() ([]string, error) { // nolint
 
 // CreateQRScene used to create QR scene.
 func (wx *Weixin) CreateQRScene(sceneID int, expires int) (*QRScene, error) {
-	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRScene, expires, sceneID)))
+	reply, err := wx.postRequest(weixinQRScene+"/create?access_token=", []byte(fmt.Sprintf(requestQRScene, expires, sceneID)))
 	if err != nil {
 		return nil, err
 	}
@@ -589,7 +600,7 @@ func (wx *Weixin) CreateQRScene(sceneID int, expires int) (*QRScene, error) {
 
 // CreateQRSceneByString used to create QR scene by str.
 func (wx *Weixin) CreateQRSceneByString(sceneStr string, expires int) (*QRScene, error) {
-	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRSceneStr, expires, sceneStr)))
+	reply, err := wx.postRequest(weixinQRScene+"/create?access_token=", []byte(fmt.Sprintf(requestQRSceneStr, expires, sceneStr)))
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +613,7 @@ func (wx *Weixin) CreateQRSceneByString(sceneStr string, expires int) (*QRScene,
 
 // CreateQRLimitScene used to create QR limit scene.
 func (wx *Weixin) CreateQRLimitScene(sceneID int) (*QRScene, error) {
-	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitScene, sceneID)))
+	reply, err := wx.postRequest(weixinQRScene+"/create?access_token=", []byte(fmt.Sprintf(requestQRLimitScene, sceneID)))
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +626,7 @@ func (wx *Weixin) CreateQRLimitScene(sceneID int) (*QRScene, error) {
 
 // CreateQRLimitSceneByString used to create QR limit scene by str.
 func (wx *Weixin) CreateQRLimitSceneByString(sceneStr string) (*QRScene, error) {
-	reply, err := postRequest(weixinQRScene+"/create?access_token=", wx.tokenChan, []byte(fmt.Sprintf(requestQRLimitSceneStr, sceneStr)))
+	reply, err := wx.postRequest(weixinQRScene+"/create?access_token=", []byte(fmt.Sprintf(requestQRLimitSceneStr, sceneStr)))
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +649,7 @@ func (wx *Weixin) ShortURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	reply, err := postRequest(weixinShortURL+"?access_token=", wx.tokenChan, data)
+	reply, err := wx.postRequest(weixinShortURL+"?access_token=", data)
 	if err != nil {
 		return "", err
 	}
@@ -657,13 +668,13 @@ func (wx *Weixin) CreateMenu(menu *Menu) error {
 	if err != nil {
 		return err
 	}
-	_, err = postRequest(weixinHost+"/menu/create?access_token=", wx.tokenChan, data)
+	_, err = wx.postRequest(weixinHost+"/menu/create?access_token=", data)
 	return err
 }
 
 // GetMenu used to get menu.
 func (wx *Weixin) GetMenu() (*Menu, error) {
-	reply, err := sendGetRequest(weixinHost+"/menu/get?access_token=", wx.tokenChan)
+	reply, err := wx.sendGetRequest(weixinHost + "/menu/get?access_token=")
 	if err != nil {
 		return nil, err
 	}
@@ -678,7 +689,7 @@ func (wx *Weixin) GetMenu() (*Menu, error) {
 
 // DeleteMenu used to delete menu.
 func (wx *Weixin) DeleteMenu() error {
-	_, err := sendGetRequest(weixinHost+"/menu/delete?access_token=", wx.tokenChan)
+	_, err := wx.sendGetRequest(weixinHost + "/menu/delete?access_token=")
 	return err
 }
 
@@ -694,7 +705,7 @@ func (wx *Weixin) SetTemplateIndustry(id1 string, id2 string) error {
 	if err != nil {
 		return err
 	}
-	_, err = postRequest(weixinTemplate+"/api_set_industry?access_token=", wx.tokenChan, data)
+	_, err = wx.postRequest(weixinTemplate+"/api_set_industry?access_token=", data)
 	return err
 }
 
@@ -708,7 +719,7 @@ func (wx *Weixin) AddTemplate(shortid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	reply, err := postRequest(weixinTemplate+"/api_set_industry?access_token=", wx.tokenChan, data)
+	reply, err := wx.postRequest(weixinTemplate+"/api_set_industry?access_token=", data)
 	if err != nil {
 		return "", err
 	}
@@ -737,7 +748,7 @@ func (wx *Weixin) PostTemplateMessage(touser string, templateid string, url stri
 	if err != nil {
 		return 0, err
 	}
-	reply, err := postRequest(weixinHost+"/message/template/send?access_token=", wx.tokenChan, msgStr)
+	reply, err := wx.postRequest(weixinHost+"/message/template/send?access_token=", msgStr)
 	if err != nil {
 		return 0, err
 	}
@@ -756,7 +767,7 @@ func (wx *Weixin) PostTemplateMessageMiniProgram(msg *TmplMsg) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	reply, err := postRequest(weixinHost+"/message/template/send?access_token=", wx.tokenChan, msgStr)
+	reply, err := wx.postRequest(weixinHost+"/message/template/send?access_token=", msgStr)
 	if err != nil {
 		return 0, err
 	}
@@ -794,7 +805,7 @@ func (wx *Weixin) GetUserAccessToken(code string) (*UserAccessToken, error) {
 
 // GetUserInfo used to get user info
 func (wx *Weixin) GetUserInfo(openid string) (*UserInfo, error) {
-	reply, err := sendGetRequest(fmt.Sprintf("%s?openid=%s&lang=zh_CN&access_token=", weixinUserInfo, openid), wx.tokenChan)
+	reply, err := wx.sendGetRequest(fmt.Sprintf("%s?openid=%s&lang=zh_CN&access_token=", weixinUserInfo, openid))
 	if err != nil {
 		return nil, err
 	}
@@ -982,8 +993,8 @@ func authAccessToken(appid string, secret string) (string, time.Duration) {
 	return "", 0
 }
 
-func getJsAPITicket(c chan AccessToken) (*jsAPITicket, error) {
-	reply, err := sendGetRequest(weixinJsApiTicketURL+"?type=jsapi&access_token=", c)
+func (wx *Weixin) getJsAPITicket() (*jsAPITicket, error) {
+	reply, err := wx.sendGetRequest(weixinJsApiTicketURL + "?type=jsapi&access_token=")
 	if err != nil {
 		return nil, err
 	}
@@ -1002,7 +1013,11 @@ func getJsAPITicket(c chan AccessToken) (*jsAPITicket, error) {
 }
 
 func (wx *Weixin) createAccessToken(c chan AccessToken, appid string, secret string) {
-	token := AccessToken{"", time.Now()}
+	cacheKey := fmt.Sprintf(cacheKeyWeixinAccesToken, appid)
+	token, err := wx.cacheStore.Get(cacheKey)
+	if err != nil {
+		panic(fmt.Sprintf("init access token failed: %s", err))
+	}
 	c <- token
 	for {
 		swapped := atomic.CompareAndSwapInt32(&wx.refreshToken, 1, 0)
@@ -1010,28 +1025,37 @@ func (wx *Weixin) createAccessToken(c chan AccessToken, appid string, secret str
 			var expires time.Duration
 			token.Token, expires = authAccessToken(appid, secret)
 			token.Expires = time.Now().Add(expires)
+
+			if err = wx.cacheStore.Set(cacheKey, token); err != nil {
+				c <- AccessToken{}
+				continue
+			}
+		}
+		if token, err = wx.cacheStore.Get(cacheKey); err != nil {
+			c <- AccessToken{}
+			continue
 		}
 		c <- token
 	}
 }
 
-func createJsAPITicket(cin chan AccessToken, c chan jsAPITicket) {
-	ticket := jsAPITicket{"", time.Now()}
-	c <- ticket
-	for {
-		if time.Since(ticket.expires).Seconds() >= 0 {
-			t, err := getJsAPITicket(cin)
-			if err == nil {
-				ticket = *t
-			}
-		}
-		c <- ticket
-	}
+func (wx *Weixin) createJsAPITicket(cin chan AccessToken, c chan jsAPITicket) {
+	// ticket := jsAPITicket{"", time.Now()}
+	// c <- ticket
+	// for {
+	// 	if time.Since(ticket.expires).Seconds() >= 0 {
+	// 		t, err := wx.getJsAPITicket()
+	// 		if err == nil {
+	// 			ticket = *t
+	// 		}
+	// 	}
+	// 	c <- ticket
+	// }
 }
 
-func sendGetRequest(reqURL string, c chan AccessToken) ([]byte, error) {
+func (wx *Weixin) sendGetRequest(reqURL string) ([]byte, error) {
 	for i := 0; i < retryMaxN; i++ {
-		token := <-c
+		token := wx.GetAccessToken()
 		if time.Since(token.Expires).Seconds() < 0 {
 			r, err := http.Get(reqURL + token.Token)
 			if err != nil {
@@ -1059,9 +1083,9 @@ func sendGetRequest(reqURL string, c chan AccessToken) ([]byte, error) {
 	return nil, errors.New("WeiXin post request too many times:" + reqURL)
 }
 
-func postRequest(reqURL string, c chan AccessToken, data []byte) ([]byte, error) {
+func (wx *Weixin) postRequest(reqURL string, data []byte) ([]byte, error) {
 	for i := 0; i < retryMaxN; i++ {
-		token := <-c
+		token := wx.GetAccessToken()
 		if time.Since(token.Expires).Seconds() < 0 {
 			r, err := http.Post(reqURL+token.Token, "application/json; charset=utf-8", bytes.NewReader(data))
 			if err != nil {
@@ -1089,20 +1113,20 @@ func postRequest(reqURL string, c chan AccessToken, data []byte) ([]byte, error)
 	return nil, errors.New("WeiXin post request too many times:" + reqURL)
 }
 
-func postMessage(c chan AccessToken, msg interface{}) error {
+func (wx *Weixin) postMessage(msg interface{}) error {
 	data, err := marshal(msg)
 	if err != nil {
 		return err
 	}
-	_, err = postRequest(weixinHost+"/message/custom/send?access_token=", c, data)
+	_, err = wx.postRequest(weixinHost+"/message/custom/send?access_token=", data)
 	return err
 }
 
 // nolint: gocyclo
-func uploadMedia(c chan AccessToken, mediaType string, filename string, reader io.Reader) (string, error) {
+func (wx *Weixin) uploadMedia(mediaType string, filename string, reader io.Reader) (string, error) {
 	reqURL := weixinFileURL + "/upload?type=" + mediaType + "&access_token="
 	for i := 0; i < retryMaxN; i++ {
-		token := <-c
+		token := wx.GetAccessToken()
 		if time.Since(token.Expires).Seconds() < 0 {
 			bodyBuf := &bytes.Buffer{}
 			bodyWriter := multipart.NewWriter(bodyBuf)
@@ -1147,10 +1171,10 @@ func uploadMedia(c chan AccessToken, mediaType string, filename string, reader i
 	return "", errors.New("WeiXin upload media too many times")
 }
 
-func downloadMedia(c chan AccessToken, mediaID string, writer io.Writer) error {
+func (wx *Weixin) downloadMedia(mediaID string, writer io.Writer) error {
 	reqURL := weixinFileURL + "/get?media_id=" + mediaID + "&access_token="
 	for i := 0; i < retryMaxN; i++ {
-		token := <-c
+		token := wx.GetAccessToken()
 		if time.Since(token.Expires).Seconds() < 0 {
 			r, err := http.Get(reqURL + token.Token)
 			if err != nil {
